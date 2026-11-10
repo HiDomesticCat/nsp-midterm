@@ -178,6 +178,7 @@ log 的每一行有時間、等級、程式名稱與 pid、原始檔與行號。
 - `make deploy` 把 `pmon` 和 server 正在使用的同一個 `libpmon.so` 送到 client VM。
 - 測試時 server 跑在 `nsp-server`，client 從兩台 client VM 透過測試網段連線：
   `~/pmon/bin/pmon -s nsp-server watch`。
+- 版本控制：git，一個功能或一個修正一個 commit，訊息說明為什麼。`build/` 與 `build-debug/` 不進版控。
 
 ```
 nsp-midterm/
