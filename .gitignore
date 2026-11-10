@@ -1,0 +1,5 @@
+# build output (make / make DEBUG=1)
+build/
+build-debug/
+*.o
+*.d
