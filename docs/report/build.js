@@ -5,7 +5,7 @@ const path = require("path");
 const {
   Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
   HeadingLevel, AlignmentType, WidthType, ShadingType, BorderStyle,
-  LevelFormat, Footer, PageNumber, PageBreak,
+  LevelFormat, Footer, PageNumber, PageBreak, ImageRun,
 } = require("docx");
 
 const [, , mdPath, srcRoot, outPath] = process.argv;
@@ -99,6 +99,18 @@ while (i < md.length) {
   }
   if (line.startsWith("@include ")) {
     out.push(...codeBlock(readFile(line.slice(9).trim())));
+    i++; continue;
+  }
+  if (line.startsWith("@image ")) {
+    const rel = line.slice(7).trim();
+    const data = fs.readFileSync(path.join(path.dirname(mdPath), rel));
+    const w = data.readUInt32BE(16), h = data.readUInt32BE(20);   // PNG IHDR
+    const scale = Math.min(658 / w, 860 / h, 1);
+    out.push(new Paragraph({
+      alignment: AlignmentType.CENTER, spacing: { before: 100, after: 200 },
+      children: [new ImageRun({ type: "png", data,
+        transformation: { width: Math.round(w * scale), height: Math.round(h * scale) } })],
+    }));
     i++; continue;
   }
   if (line.startsWith("@source ")) {

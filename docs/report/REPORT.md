@@ -304,13 +304,13 @@ $(SERVER): $(SERVER_OBJ) $(LIB)
 
 # 4. 執行結果
 
-以下各節是 `demo/` 目錄中對應腳本的實際輸出。每支腳本會自己啟動與關閉 server。
+以下各節是 `demo/` 目錄中對應腳本的執行畫面截圖。每支腳本會自己啟動與關閉 server。截圖是在 `nsp-server` 上以終端機程式 xterm 執行腳本後擷取的畫面，由 `docs/report/screenshots.sh` 產生；文字版的輸出另存在 `docs/output/`。
 
 ## 4.1 基本功能：client 向 server 要系統資訊
 
 `demo/01-basic.sh`
 
-@include output/01-basic.txt
+@image ../screenshots/01-basic.png
 
 ## 4.2 fork 與 10 個 client 同時連線
 
@@ -320,11 +320,11 @@ $(SERVER): $(SERVER_OBJ) $(LIB)
 - TCP 連線：埠 9419 上有 10 條已建立的連線。
 - 每個 client 回報的 server pid 都不同，與行程樹中的 10 個 child 一致。
 
-@include output/02-ten-clients.txt
+@image ../screenshots/02-ten-clients.png
 
 `demo/02-ten-clients.sh remote`：改由兩台 client 主機各啟動 5 個 client。server 端看到的連線來自兩個不同的位址，各 5 條。
 
-@include output/02-ten-clients-remote.txt
+@image ../screenshots/02-ten-clients-remote.png
 
 ## 4.3 兩層 debug log 控制
 
@@ -333,7 +333,7 @@ $(SERVER): $(SERVER_OBJ) $(LIB)
 - 編譯期：同一句除錯訊息在一般建置的執行檔裡出現 0 次，在除錯建置裡出現 1 次；一般建置即使加上 `-v` 也沒有任何 debug 輸出。
 - 執行期：除錯建置預設不輸出；對執行中的 server 送 `SIGUSR1` 之後開始輸出，再送一次就停止。
 
-@include output/04-debug-log.txt
+@image ../screenshots/04-debug-log.png
 
 ## 4.4 共用動態函式庫
 
@@ -344,7 +344,7 @@ $(SERVER): $(SERVER_OBJ) $(LIB)
 - 把函式庫移走之後，程式無法啟動。
 - server 與兩台 client 主機上的函式庫雜湊值相同，是同一個檔案。
 
-@include output/05-shared-lib.txt
+@image ../screenshots/05-shared-lib.png
 
 # 5. 強健性機制
 
@@ -364,7 +364,7 @@ $(SERVER): $(SERVER_OBJ) $(LIB)
 - 沒有機制：5 個 child 都停在狀態 `Z`（殭屍）。它們已經結束，但行程表的項目沒有被釋放。長時間執行的 server 會因此用完行程數上限。
 - 有機制：沒有殘留。
 
-@include output/r1-zombie.txt
+@image ../screenshots/r1-zombie.png
 
 ## 5.2 R2：拒絕不合協定的資料
 
@@ -373,7 +373,7 @@ $(SERVER): $(SERVER_OBJ) $(LIB)
 - 沒有機制：child 把 `GET / HTTP/1.1` 的前 12 個位元組當成標頭。第 4 到 7 個位元組 `/ HT` 被解讀成長度 `0x2f204854`，約 754 MiB。child 配置了這麼多記憶體（輸出中的 756 MB）並等待永遠不會來的資料，`curl` 等到逾時。任何人只要送 12 個位元組就能讓 server 佔用大量記憶體。
 - 有機制：child 發現 magic 不是 `PM`，立刻回 BAD_REQUEST 並斷線，沒有配置任何記憶體。
 
-@include output/r2-validate.txt
+@image ../screenshots/r2-validate.png
 
 ## 5.3 R3：不送資料的 client
 
@@ -382,7 +382,7 @@ $(SERVER): $(SERVER_OBJ) $(LIB)
 - 沒有機制：5 秒後 child 還在。每一個這樣的連線永久佔用一個 child，連線數達到上限後其他人就連不進來。
 - 有機制：3 秒後 child 記錄逾時並結束。（示範用 3 秒，預設是 10 秒。）
 
-@include output/r3-timeout.txt
+@image ../screenshots/r3-timeout.png
 
 ## 5.4 R4：client 中途消失
 
@@ -391,7 +391,7 @@ $(SERVER): $(SERVER_OBJ) $(LIB)
 - 沒有機制：child 繼續往已關閉的連線寫入，被核心以 `SIGPIPE` 殺掉。parent 的 log 記錄了 `killed by signal 13 (Broken pipe)`。child 來不及做任何清理。
 - 有機制：child 在等待下一次取樣時發現連線已關閉，記錄後正常結束。
 
-@include output/r4-sigpipe.txt
+@image ../screenshots/r4-sigpipe.png
 
 ## 5.5 其他已實作的機制
 
