@@ -302,6 +302,45 @@ $(SERVER): $(SERVER_OBJ) $(LIB)
 - `make DEBUG=1` 加上 `-DPMON_DEBUG -g -O0`，輸出到另一個目錄 `build-debug/`，兩種建置可以並存比較。
 - 所有檔案都以 `-std=c11 -Wall -Wextra -Werror` 編譯，目前沒有任何警告。
 
+## 3.7 client 的指令表與選項解析（`client/pmon.c`）
+
+```c
+static const struct command {
+    const char *name;
+    int (*run)(const char *server, int argc, char **argv);
+    const char *args;
+    const char *help;
+} commands[] = {
+    { "sysinfo", cmd_sysinfo, "[--hold seconds]",        "facts about the server machine" },
+    { "stat",    cmd_stat,    "",                         "current CPU, memory, disk, network" },
+    { "watch",   cmd_watch,   "[-i seconds] [-n count]",  "keep showing them (Ctrl+C to stop)" },
+};
+```
+
+- 所有指令宣告在一張表裡，每一列有名稱、負責執行的函式（函式指標）與說明文字。`main()` 查表後呼叫，`usage()` 也從同一張表印出說明。新增指令只要加一列。
+- 選項分兩層解析。`main()` 用 `getopt(argc, argv, "+s:vh")` 處理指令名稱之前的全域選項，開頭的 `+` 讓它遇到指令名稱就停下；接著把 `argv` 移到指令名稱的位置、重設 `optind`，交給各指令用自己的規格再解析一次。所以 `-i 2`、`-i2`、選項順序互換都能接受，行為與系統上的其他工具一致。
+
+```c
+static int parse_int(const char *text, const char *what, int min, int max, int *out)
+{
+    char *end;
+    long v;
+
+    errno = 0;
+    v = strtol(text, &end, 10);
+    if (end == text || *end != '\0' || errno != 0 || v < min || v > max) {
+        fprintf(stderr, "pmon: %s must be a number from %d to %d, not '%s'\n",
+                what, min, max, text);
+        return -1;
+    }
+    *out = (int)v;
+    return 0;
+}
+```
+
+- 選項的數值用 `strtol` 轉換而不是 `atoi`。`atoi("abc")` 會回傳 0、`atoi("5x")` 會回傳 5，都不報錯；`strtol` 可以檢查整個字串是否都是數字（`*end` 必須是字串結尾）以及是否溢位（`errno`）。
+- 不合法時明確指出是哪個選項、允許的範圍與實際收到的內容，例如 `pmon: -i must be a number from 1 to 60, not '5x'`。
+
 # 4. 執行結果
 
 以下各節是 `demo/` 目錄中對應腳本的執行畫面截圖。每支腳本會自己啟動與關閉 server。截圖是在 `nsp-server` 上以終端機程式 xterm 執行腳本後擷取的畫面，由 `docs/report/screenshots.sh` 產生；文字版的輸出另存在 `docs/output/`。
@@ -400,7 +439,7 @@ $(SERVER): $(SERVER_OBJ) $(LIB)
 - 讀寫都用迴圈處理短讀、短寫與 `EINTR`（3.5 節）。
 - 連線數上限，超過時回 BUSY；`fork()` 失敗時同樣回 BUSY，server 不會結束。
 - 拒絕非法資料時先送出錯誤回覆、讀掉對方已送來的資料再關閉。直接關閉會讓核心送出重置，對方收不到回覆。這是測試時實際遇到後修正的問題。
-- `watch` 的參數範圍檢查。
+- 參數檢查：client 以 `strtol` 驗證選項的數值（3.7 節），server 再檢查一次 `watch` 的參數範圍，不信任 client。
 - `SO_REUSEADDR`，server 重啟不必等待。
 - client 的連線逾時（5 秒）與回應逾時（15 秒）。
 - 收到 `SIGINT` 或 `SIGTERM` 時，parent 通知所有 child 結束並等待它們，不留下孤兒行程。
