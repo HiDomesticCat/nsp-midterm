@@ -129,6 +129,8 @@ for f in docs/capture/stat-lo.pcap docs/capture/stat-ens4.pcap; do
     is "$f: packets" "$(tshark -r $f 2>/dev/null | wc -l)" 10
     tshark -r $f -Y 'tcp.len > 0' -T fields -e ip.src -e ip.dst -e tcp.len -e tcp.payload 2>/dev/null | cut -c1-74 | sed 's/^/      /'
     is "$f: data packets starting with magic 504d" "$(tshark -r $f -Y 'tcp.len > 0' -T fields -e tcp.payload 2>/dev/null | grep -c '^504d')" 2
+    is "$f: frames whose length and CRC-32 Wireshark recomputes as correct" "$(tshark -X lua_script:docs/capture/pmon.lua -r $f -Y 'pmon.crc32_ok == 1' 2>/dev/null | wc -l)" 2
+    is "$f: frames Wireshark finds incorrect" "$(tshark -X lua_script:docs/capture/pmon.lua -r $f -Y 'pmon && !(pmon.crc32_ok == 1)' 2>/dev/null | wc -l)" 0
 done
 
 echo "== 7. robustness, R1 checked independently"

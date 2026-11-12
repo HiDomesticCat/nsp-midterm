@@ -28,7 +28,7 @@
       hostname=nsp-server
       kernel=Linux 6.8.0-142-generic x86_64
       cpus=2
-      uptime=6d 6h 45m
+      uptime=6d 8h 58m
       mem_total_mb=3915
   PASS  pmon stat exit status (= 0)
   PASS  pmon watch -n 2 exit status (= 0)
@@ -65,10 +65,14 @@
       127.0.0.1	127.0.0.1	12	504d02000000000000000000
       127.0.0.1	127.0.0.1	195	504d0200000000b71165f84874696d653d31303a32363a3034
   PASS  docs/capture/stat-lo.pcap: data packets starting with magic 504d (= 2)
+  PASS  docs/capture/stat-lo.pcap: frames whose length and CRC-32 Wireshark recomputes as correct (= 2)
+  PASS  docs/capture/stat-lo.pcap: frames Wireshark finds incorrect (= 0)
   PASS  docs/capture/stat-ens4.pcap: packets (= 10)
       10.77.0.21	10.77.0.10	12	504d02000000000000000000
       10.77.0.10	10.77.0.21	195	504d0200000000b71a0a7d1874696d653d31303a32363a30
   PASS  docs/capture/stat-ens4.pcap: data packets starting with magic 504d (= 2)
+  PASS  docs/capture/stat-ens4.pcap: frames whose length and CRC-32 Wireshark recomputes as correct (= 2)
+  PASS  docs/capture/stat-ens4.pcap: frames Wireshark finds incorrect (= 0)
 == 7. robustness, R1 checked independently
   PASS  zombies with --no-reap (= 5)
   PASS  zombies with reaping (= 0)
@@ -77,4 +81,4 @@
   PASS  report images that do not exist (= 0)
       images in report: 12
 
-RESULT: 50 passed, 0 failed
+RESULT: 54 passed, 0 failed
