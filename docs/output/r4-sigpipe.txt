@@ -1,0 +1,14 @@
+
+==== WITHOUT the mechanism (--no-sigpipe) ====
+$ build/bin/pmond -p 9419 --no-sigpipe    (pid 58598, log in /tmp/pmond-demo.log)
+$ pmon watch &      then, 2.5 s later:  kill -9 <client>
+server log:
+  2026-11-12 10:29:57.346 [INFO ] pmond[58608] server/session.c:76: 127.0.0.1:51766 watching every 1 s
+  2026-11-12 10:30:01.347 [ERROR] pmond[58598] server/pmond.c:96: child 58608 was killed by signal 13 (Broken pipe), 0 still active
+
+==== WITH the mechanism (notice the close; EPIPE instead of SIGPIPE) ====
+$ build/bin/pmond -p 9419     (pid 58622, log in /tmp/pmond-demo.log)
+$ pmon watch &      then, 2.5 s later:  kill -9 <client>
+server log:
+  2026-11-12 10:30:03.852 [INFO ] pmond[58631] server/session.c:76: 127.0.0.1:51776 watching every 1 s
+  2026-11-12 10:30:06.352 [INFO ] pmond[58631] server/session.c:87: 127.0.0.1:51776 stopped watching after 2 sample(s)

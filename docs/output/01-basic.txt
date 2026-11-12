@@ -1,0 +1,52 @@
+
+==== start the server ====
+$ build/bin/pmond -p 9419     (pid 58114, log in /tmp/pmond-demo.log)
+
+==== sysinfo: static facts about the machine ====
+$ build/bin/pmon -s 127.0.0.1:9419 sysinfo
+hostname=nsp-server
+kernel=Linux 6.8.0-142-generic x86_64
+cpus=2
+uptime=6d 1h 54m
+mem_total_mb=3915
+swap_total_mb=0
+disk_total_mb=18770
+disk_free_mb=15059
+server_pid=58114
+handler_pid=58139
+
+==== stat: one sample of the performance counters ====
+$ build/bin/pmon -s 127.0.0.1:9419 stat
+time=10:29:12
+cpu_pct=4.9
+load1=0.00
+tasks=182
+mem_total_mb=3915
+mem_used_mb=579
+mem_used_pct=14.8
+swap_used_mb=0
+disk_used_pct=19.7
+net_rx_kb_s=1.5
+net_tx_kb_s=4.1
+handler_pid=58141
+
+==== watch: a sample every second (3 samples) ====
+$ build/bin/pmon -s 127.0.0.1:9419 watch -i 1 -n 3
+server pid 58147, every 1 s
+time       cpu%  load1   mem%    mem MB   disk%   rx kB/s   tx kB/s  tasks
+10:29:13    0.5   0.00   14.8       579    19.7       0.1       0.7    181
+10:29:14    1.0   0.00   14.8       579    19.7       0.2       0.9    181
+10:29:15    0.5   0.00   14.8       579    19.7       0.2       0.8    181
+
+==== what the server logged ====
+2026-11-12 10:29:12.211 [INFO ] pmond[58114] server/pmond.c:280: normal build: debug messages are compiled out
+2026-11-12 10:29:12.211 [INFO ] pmond[58114] server/pmond.c:296: listening on port 9419, up to 64 clients
+2026-11-12 10:29:12.713 [INFO ] pmond[58139] server/session.c:134: 127.0.0.1:41650 connected
+2026-11-12 10:29:12.713 [INFO ] pmond[58139] server/session.c:145: 127.0.0.1:41650 disconnected after 1 request(s)
+2026-11-12 10:29:12.714 [INFO ] pmond[58141] server/session.c:134: 127.0.0.1:41652 connected
+2026-11-12 10:29:12.915 [INFO ] pmond[58141] server/session.c:145: 127.0.0.1:41652 disconnected after 1 request(s)
+2026-11-12 10:29:12.916 [INFO ] pmond[58147] server/session.c:134: 127.0.0.1:41666 connected
+2026-11-12 10:29:12.916 [INFO ] pmond[58147] server/session.c:76: 127.0.0.1:41666 watching every 1 s
+2026-11-12 10:29:15.919 [INFO ] pmond[58147] server/session.c:99: 127.0.0.1:41666 finished watching, 3 sample(s) sent
+2026-11-12 10:29:15.919 [INFO ] pmond[58147] server/session.c:145: 127.0.0.1:41666 disconnected after 1 request(s)
+2026-11-12 10:29:15.919 [INFO ] pmond[58114] server/pmond.c:218: stopped, 0 connection(s) closed

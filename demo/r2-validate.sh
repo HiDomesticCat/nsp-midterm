@@ -21,7 +21,7 @@ scenario() {
 
 title "WITHOUT the mechanism (--no-validate)"
 echo "'GET / HTTP/1.1' is read as a header: bytes 4-7 '/ HT' = 0x2f204854,"
-echo "a payload length of 790 MB. The child allocates it and waits for it."
+echo "a payload length of 790,644,820 bytes (754 MiB). The child allocates it and waits."
 scenario --no-validate
 
 title "WITH the mechanism (magic, length limit, CRC)"

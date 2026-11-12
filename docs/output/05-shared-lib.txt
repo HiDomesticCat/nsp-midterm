@@ -1,0 +1,34 @@
+
+==== the library is a shared object ====
+$ file build/lib/libpmon.so
+build/lib/libpmon.so: ELF 64-bit LSB shared object, x86-64, version 1 (SYSV), dynamically linked, BuildID[sha1]=d09ebace816b2d776dae7e604b19202b6817c12a, not stripped
+
+==== functions it exports ====
+io_read_full		log_init		proto_op_name
+io_set_sigpipe_guard	log_set_debug		proto_recv
+io_write_full		log_toggle_debug	proto_send
+kv_get			log_write		proto_status_name
+kv_get_num		pmon_crc32
+
+==== both programs need it, and look for it next to themselves ====
+--- pmond
+  0x0000000000000001 (NEEDED)             Shared library: [libpmon.so]
+  0x000000000000001d (RUNPATH)            Library runpath: [$ORIGIN/../lib]
+  libpmon.so => /home/ubuntu/nsp-midterm/build/bin/../lib/libpmon.so (0x00007652332ca000)
+--- pmon
+  0x0000000000000001 (NEEDED)             Shared library: [libpmon.so]
+  0x000000000000001d (RUNPATH)            Library runpath: [$ORIGIN/../lib]
+  libpmon.so => /home/ubuntu/nsp-midterm/build/bin/../lib/libpmon.so (0x00007a9a8cd24000)
+
+==== the functions are not copied into the programs ====
+pmond: proto_send is 'U' (U = undefined here, resolved from libpmon.so at load time)
+pmon: proto_send is 'U' (U = undefined here, resolved from libpmon.so at load time)
+
+==== without the library the programs do not start ====
+$ build/bin/pmon stat
+build/bin/pmon: error while loading shared libraries: libpmon.so: cannot open shared object file: No such file or directory
+
+==== the client VMs run the very same library file ====
+nsp-server    4a3b23344b6e3e8a60b2e2b17fc050ab
+nsp-client-1  4a3b23344b6e3e8a60b2e2b17fc050ab
+nsp-client-2  4a3b23344b6e3e8a60b2e2b17fc050ab

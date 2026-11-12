@@ -1,0 +1,21 @@
+
+==== WITHOUT the mechanism (--no-validate) ====
+'GET / HTTP/1.1' is read as a header: bytes 4-7 '/ HT' = 0x2f204854,
+a payload length of 790,644,820 bytes (754 MiB). The child allocates it and waits.
+$ build/bin/pmond -p 9419 -t 6 --no-validate    (pid 59160, log in /tmp/pmond-demo.log)
+$ curl -m 4 http://127.0.0.1:9419/
+one second later, children of the server:
+  child 59170  state S  756 MB  pmond
+curl exit code: 28   (28 = gave up after 4 s without any answer)
+server log:
+  (nothing - the server did not notice anything wrong)
+
+==== WITH the mechanism (magic, length limit, CRC) ====
+$ build/bin/pmond -p 9419 -t 6    (pid 59195, log in /tmp/pmond-demo.log)
+$ curl -m 4 http://127.0.0.1:9419/
+one second later, children of the server:
+  (none - the connection is already closed)
+curl exit code: 1   (28 = gave up after 4 s without any answer)
+server log:
+  2026-11-12 10:34:03.803 [INFO ] pmond[59204] lib/proto.c:109: rejected frame: bad magic 0x4745
+  2026-11-12 10:34:03.803 [INFO ] pmond[59204] server/session.c:155: 127.0.0.1:44716 sent an invalid frame, closing

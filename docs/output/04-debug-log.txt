@@ -1,0 +1,34 @@
+
+==== compile time: the same source, built with and without -DPMON_DEBUG ====
+197:            LOG_DEBUG("forked child %d for %s, %d active",
+
+build        size  35400 bytes   contains "forked child": 0 time(s)
+build-debug  size  61808 bytes   contains "forked child": 1 time(s)
+
+normal build, asked for debug output anyway (-v):
+$ build/bin/pmond -p 9419 -v    (pid 58253, log in /tmp/pmond-demo.log)
+DEBUG lines in the server log: 0
+2026-11-12 10:29:23.992 [INFO ] pmond[58253] server/pmond.c:280: normal build: debug messages are compiled out
+
+==== run time: debug build, debug output off by default ====
+$ build-debug/bin/pmond -p 9419     (pid 58275, log in /tmp/pmond-demo.log)
+DEBUG lines so far: 0
+
+==== run time: switch it on in the running server with SIGUSR1 ====
+$ kill -USR1 58275
+DEBUG lines now: 5
+2026-11-12 10:29:28.116 [DEBUG] pmond[58275] server/pmond.c:197: forked child 58298 for 127.0.0.1:51616, 1 active
+2026-11-12 10:29:28.116 [DEBUG] pmond[58298] lib/proto.c:100: recv header magic=0x504d op=2 status=0 len=0 crc=0x00000000
+2026-11-12 10:29:28.116 [DEBUG] pmond[58298] server/session.c:164: 127.0.0.1:51616 request STAT, 0 byte(s)
+2026-11-12 10:29:28.317 [DEBUG] pmond[58298] lib/proto.c:72: send frame op=STAT status=OK len=183
+2026-11-12 10:29:28.317 [DEBUG] pmond[58275] server/pmond.c:100: child 58298 exited with status 0, 0 still active
+
+==== run time: and off again ====
+$ kill -USR1 58275
+DEBUG lines added after switching off: 0
+
+==== run time: the client has the same switch (-v or PMON_LOG=debug) ====
+2026-11-12 10:29:31.227 [DEBUG] pmon[58313] client/pmon.c:65: connected to 127.0.0.1:9419
+2026-11-12 10:29:31.227 [DEBUG] pmon[58313] lib/proto.c:72: send frame op=STAT status=OK len=0
+2026-11-12 10:29:31.428 [DEBUG] pmon[58313] lib/proto.c:100: recv header magic=0x504d op=2 status=0 len=183 crc=0x8fb7bd53
+2026-11-12 10:29:31.428 [DEBUG] pmon[58313] client/pmon.c:88: response STAT status=OK, 183 byte(s)
