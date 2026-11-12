@@ -24,7 +24,7 @@ Network and System Programming 期中報告
 |---|---|---|
 | server 用 `fork()` 為每個連線建立 child，不用 thread | parent 只負責 accept 與 fork | 2.3、3.1、4.2 |
 | 至少 10 個 client 同時連線，附執行期證明 | 10 個 client 同時 `watch`，以 `ps`、`ss`、server log 三方對照 | 4.2 |
-| 封包擷取與分析 | `tcpdump` 擷取 loopback 與跨機兩份 | 6 |
+| 封包擷取與分析 | `tcpdump` 擷取 loopback 與跨機兩份，跨機那份另用 Wireshark 檢視 | 6 |
 | 編譯期與執行期兩層 debug log 控制 | 編譯期巨集；執行期參數、環境變數、`SIGUSR1` | 2.4、3.4、4.3 |
 | client 與 server 共用的函式包成動態函式庫 | `libpmon.so` | 2.5、3.6、4.4 |
 | client 向 server 要系統資訊 | `sysinfo`、`stat`、`watch` | 4.1 |
@@ -79,6 +79,17 @@ Network and System Programming 期中報告
 | 3 INTERNAL | server 內部錯誤 |
 
 ## 2.3 Server 的行程模型與流程
+
+下圖是一條連線從建立到結束的完整流程，三條直線分別是 client、server 的 parent 與 child。
+
+@image ../diagrams/flow.png
+
+- client 的 `connect()` 由 parent 的 `accept()` 接起來，parent 接著 `fork()`，把這條連線交給 child。
+- `fork()` 之後兩邊各關掉自己用不到的描述子：parent 關連線，child 關 listen socket。parent 回到 `poll()` 等下一個 client，所以圖中請求與回應的箭頭都越過 parent，直接到 child。
+- 虛線框內是 child 的請求迴圈，一條連線可以送多個請求。
+- client 關閉連線後，child 讀到 EOF 就結束。核心送 `SIGCHLD` 給 parent，parent 用 `waitpid()` 回收並寫 log。
+
+多個 client 連線時，每條連線各有一個 child：
 
 ```
 pmond (parent)   socket → bind → listen → 主迴圈
@@ -385,6 +396,12 @@ static int parse_int(const char *text, const char *what, int min, int max, int *
 
 @image ../screenshots/05-shared-lib.png
 
+## 4.5 全部要求的自動檢查
+
+`demo/verify.sh` 不使用前面的 demo 腳本。它自己重新建置兩種版本、啟動 server，逐條檢查題目要求並印出 PASS 或 FAIL。以下是完整輸出，50 項全部通過。
+
+@include docs/output/verify.txt
+
 # 5. 強健性機制
 
 四個機制各有一個關閉參數。每支腳本先關掉機制執行一次，再開啟機制執行一次，其他條件完全相同。關閉參數只用於示範，server 啟動時會記錄一行警告。
@@ -446,7 +463,7 @@ static int parse_int(const char *text, const char *what, int min, int max, int *
 
 # 6. 封包擷取與分析
 
-`demo/03-capture.sh` 用 `tcpdump` 擷取一次 `pmon stat` 的完整連線。loopback 與跨機（`nsp-client-1` 到 `nsp-server`）各擷取一份，`.pcap` 檔在 `docs/capture/`，可用 Wireshark 開啟。以下以 loopback 的擷取說明。
+`demo/03-capture.sh` 用 `tcpdump` 擷取一次 `pmon stat` 的完整連線。loopback 與跨機（`nsp-client-1` 到 `nsp-server`）各擷取一份，`.pcap` 檔在 `docs/capture/`。6.1 到 6.3 以 loopback 的擷取用 `tcpdump` 的輸出說明，6.5 用 Wireshark 檢視跨機的那一份。
 
 ## 6.1 整條連線：10 個封包
 
@@ -521,6 +538,27 @@ client 的埠是 58396，server 是 9419。
 
 應用層的 12 位元組標頭與內容格式完全相同。
 
+## 6.5 用 Wireshark 檢視跨機擷取
+
+跨機的擷取檔 `docs/capture/stat-ens4.pcap` 用 Wireshark 開啟。Wireshark 不認得自訂的協定，預設只會把訊框顯示成一串 TCP 資料，所以另外寫了一支 Lua 解析器 `docs/capture/pmon.lua`，告訴 Wireshark 埠 9419 上的資料前 12 位元組各是什麼欄位。
+
+```
+wireshark -X lua_script:docs/capture/pmon.lua docs/capture/stat-ens4.pcap
+```
+
+封包 4，client（10.77.0.21）送給 server（10.77.0.10）的請求：
+
+@image ../screenshots/wireshark-request.png
+
+封包 6，server 的回應：
+
+@image ../screenshots/wireshark-reply.png
+
+- 上方的封包列表與 6.1 的表格一致：三向交握、請求、回應、兩邊各一個 FIN，共 10 個封包。第 4、6 個封包的 Protocol 欄顯示 PMON，Info 欄是解析器產生的摘要。
+- 左下方是解析結果。請求的內容長度為 0、CRC 為 0；回應的內容長度為 183、CRC 為 `0x1a0a7d18`，Payload 是 `key=value` 文字。
+- 右下方反白的位元組就是 pmon 訊框，它前面的位元組是 Ethernet、IP、TCP 三層的標頭。回應的訊框從位移 `0x42` 開始，開頭兩個位元組是 `50 4d`。
+- 封包 4 到封包 6 相隔 0.2006 秒，同樣是 server 兩次取樣的間隔。
+
 # 7. 稽核與安全性討論
 
 ## 7.1 server 的 log 作為稽核紀錄
@@ -563,6 +601,7 @@ build/bin/pmon sysinfo                # 查詢
 build/bin/pmon -s nsp-server watch    # 連到別台主機持續監看
 
 demo/run-all.sh pause                 # 依序執行全部 demo
+demo/verify.sh                        # 逐條檢查全部要求
 ```
 
 | 腳本 | 展示的要求 |
@@ -573,6 +612,7 @@ demo/run-all.sh pause                 # 依序執行全部 demo
 | `demo/04-debug-log.sh` | 兩層 debug log |
 | `demo/05-shared-lib.sh` | 共用動態函式庫 |
 | `demo/r1-zombie.sh` 到 `demo/r4-sigpipe.sh` | 四組強健性對照 |
+| `demo/verify.sh` | 逐條檢查全部要求，印出 PASS 或 FAIL |
 
 # 附錄：完整原始碼
 
@@ -599,3 +639,5 @@ demo/run-all.sh pause                 # 依序執行全部 demo
 @source demo/r3-timeout.sh
 @source demo/r4-sigpipe.sh
 @source demo/run-all.sh
+@source demo/verify.sh
+@source docs/capture/pmon.lua

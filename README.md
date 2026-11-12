@@ -44,6 +44,7 @@ build/bin/pmon -s nsp-server watch       # 連到別台主機
 | `demo/r3-timeout.sh` | 強健性：不送資料的 client 會逾時 |
 | `demo/r4-sigpipe.sh` | 強健性：client 中途消失時 server 不會被殺掉 |
 | `demo/run-all.sh [pause]` | 依序執行全部 |
+| `demo/verify.sh` | 逐條檢查全部要求，印出 PASS 或 FAIL（另需 `tshark`） |
 
 四支 `r*` 腳本各跑兩次：先關掉機制，再開啟機制，比較兩者的行為。
 
@@ -55,6 +56,6 @@ lib/              libpmon.so：log.c io.c proto.c kv.c
 server/           pmond：pmond.c session.c sysinfo.c metrics.c
 client/           pmon：pmon.c
 demo/             展示腳本
-docs/             DESIGN.md（系統設計）、CAPTURE.md（封包分析）、capture/（擷取檔）
+docs/             DESIGN.md（系統設計）、CAPTURE.md（封包分析）、capture/（擷取檔與 Wireshark 解析器 pmon.lua）
 infra/            建立測試用 VM 的腳本
 ```

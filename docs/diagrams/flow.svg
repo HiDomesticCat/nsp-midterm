@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="700" viewBox="0 0 900 700" font-family="DejaVu Sans, sans-serif" font-size="13">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+      <path d="M0,0 L10,4 L0,8 z" fill="#1f2937"/>
+    </marker>
+    <marker id="arrowg" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+      <path d="M0,0 L10,4 L0,8 z" fill="#6b7280"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="900" height="700" fill="#ffffff"/>
+
+  <!-- lifelines -->
+  <line x1="150" y1="64" x2="150" y2="680" stroke="#9ca3af" stroke-width="1.5" stroke-dasharray="5,4"/>
+  <line x1="450" y1="64" x2="450" y2="680" stroke="#9ca3af" stroke-width="1.5" stroke-dasharray="5,4"/>
+  <line x1="750" y1="282" x2="750" y2="596" stroke="#9ca3af" stroke-width="1.5" stroke-dasharray="5,4"/>
+
+  <!-- heads -->
+  <rect x="60" y="20" width="180" height="44" rx="6" fill="#e5e9ee" stroke="#1f2937" stroke-width="1.5"/>
+  <text x="150" y="39" text-anchor="middle" font-weight="bold">client</text>
+  <text x="150" y="56" text-anchor="middle" fill="#4b5563" font-size="12">pmon</text>
+
+  <rect x="360" y="20" width="180" height="44" rx="6" fill="#e5e9ee" stroke="#1f2937" stroke-width="1.5"/>
+  <text x="450" y="39" text-anchor="middle" font-weight="bold">server parent</text>
+  <text x="450" y="56" text-anchor="middle" fill="#4b5563" font-size="12">pmond</text>
+
+  <rect x="660" y="238" width="180" height="44" rx="6" fill="#dbeafe" stroke="#1f2937" stroke-width="1.5"/>
+  <text x="750" y="257" text-anchor="middle" font-weight="bold">server child</text>
+  <text x="750" y="274" text-anchor="middle" fill="#4b5563" font-size="12">pmond, one per connection</text>
+
+  <!-- parent start-up -->
+  <rect x="345" y="86" width="210" height="26" rx="4" fill="#ffffff" stroke="#9ca3af"/>
+  <text x="450" y="104" text-anchor="middle">socket() bind() listen()</text>
+  <rect x="345" y="124" width="210" height="26" rx="4" fill="#ffffff" stroke="#9ca3af"/>
+  <text x="450" y="142" text-anchor="middle">poll(listen fd, 1 s)</text>
+
+  <!-- connect -->
+  <text x="300" y="180" text-anchor="middle">connect()  (TCP handshake)</text>
+  <line x1="150" y1="188" x2="448" y2="188" stroke="#1f2937" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <rect x="345" y="204" width="210" height="26" rx="4" fill="#ffffff" stroke="#9ca3af"/>
+  <text x="450" y="222" text-anchor="middle">accept()</text>
+
+  <!-- fork -->
+  <text x="555" y="252" text-anchor="middle" font-weight="bold">fork()</text>
+  <line x1="450" y1="260" x2="658" y2="260" stroke="#1f2937" stroke-width="1.5" stroke-dasharray="6,4" marker-end="url(#arrow)"/>
+
+  <rect x="345" y="300" width="210" height="42" rx="4" fill="#ffffff" stroke="#9ca3af"/>
+  <text x="450" y="317" text-anchor="middle">close(connection fd)</text>
+  <text x="450" y="334" text-anchor="middle">back to poll()</text>
+  <rect x="660" y="300" width="180" height="26" rx="4" fill="#ffffff" stroke="#9ca3af"/>
+  <text x="750" y="318" text-anchor="middle">close(listen fd)</text>
+
+  <!-- request loop -->
+  <rect x="40" y="362" width="830" height="166" rx="4" fill="none" stroke="#6b7280" stroke-dasharray="3,3"/>
+  <rect x="40" y="362" width="238" height="22" fill="#f3f4f6" stroke="#6b7280"/>
+  <text x="48" y="378" fill="#374151" font-size="12">loop: until the client closes</text>
+
+  <text x="300" y="404" text-anchor="middle">request frame</text>
+  <text x="600" y="404" text-anchor="middle" font-family="DejaVu Sans Mono, monospace" font-size="12">[ PM | op | status | len | crc ]</text>
+  <line x1="150" y1="412" x2="748" y2="412" stroke="#1f2937" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <rect x="630" y="424" width="236" height="42" rx="4" fill="#ffffff" stroke="#9ca3af"/>
+  <text x="748" y="441" text-anchor="middle">check magic, length, CRC</text>
+  <text x="748" y="458" text-anchor="middle">read /proc, build the reply</text>
+
+  <text x="300" y="492" text-anchor="middle">response frame</text>
+  <text x="600" y="492" text-anchor="middle" font-family="DejaVu Sans Mono, monospace" font-size="12">status=OK + key=value text</text>
+  <line x1="750" y1="500" x2="152" y2="500" stroke="#1f2937" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- close -->
+  <text x="300" y="556" text-anchor="middle">close()  (FIN)</text>
+  <line x1="150" y1="564" x2="748" y2="564" stroke="#1f2937" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <rect x="640" y="576" width="220" height="26" rx="4" fill="#ffffff" stroke="#9ca3af"/>
+  <text x="750" y="594" text-anchor="middle">read gives EOF, _exit(0)</text>
+
+  <!-- SIGCHLD -->
+  <text x="600" y="624" text-anchor="middle" font-weight="bold">SIGCHLD</text>
+  <path d="M750,602 L750,632 L452,632" fill="none" stroke="#6b7280" stroke-width="1.5" stroke-dasharray="6,4" marker-end="url(#arrowg)"/>
+  <rect x="330" y="646" width="240" height="26" rx="4" fill="#ffffff" stroke="#9ca3af"/>
+  <text x="450" y="664" text-anchor="middle">waitpid(-1, WNOHANG), log it</text>
+</svg>

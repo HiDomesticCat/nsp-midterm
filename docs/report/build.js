@@ -102,10 +102,11 @@ while (i < md.length) {
     i++; continue;
   }
   if (line.startsWith("@image ")) {
-    const rel = line.slice(7).trim();
+    // "@image path" or "@image path max-width-in-pixels"
+    const [rel, maxw] = line.slice(7).trim().split(/\s+/);
     const data = fs.readFileSync(path.join(path.dirname(mdPath), rel));
     const w = data.readUInt32BE(16), h = data.readUInt32BE(20);   // PNG IHDR
-    const scale = Math.min(658 / w, 860 / h, 1);
+    const scale = Math.min((Number(maxw) || 658) / w, 860 / h, 1);
     out.push(new Paragraph({
       alignment: AlignmentType.CENTER, spacing: { before: 100, after: 200 },
       children: [new ImageRun({ type: "png", data,
