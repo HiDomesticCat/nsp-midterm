@@ -1,174 +1,174 @@
-# pmon：遠端效能監控系統
+# pmon: A Remote Performance Monitor
 
-Network and System Programming 期中報告
+Network and System Programming, Midterm Report
 
-姓名：＿＿＿＿＿＿　　學號：＿＿＿＿＿＿
+Name: ____________    Student ID: ____________
 
-# 1. 應用介紹
+# 1. Introduction
 
-## 1.1 這個系統做什麼
+## 1.1 What the system does
 
-`pmon` 是一個遠端效能監控系統。server（`pmond`）跑在被監控的主機上，client（`pmon`）從別台機器連線，查詢那台主機的系統資訊與即時效能數據。
+`pmon` is a remote performance monitor. The server (`pmond`) runs on the machine being monitored. The client (`pmon`) connects from another machine and asks for that machine's system information and live performance figures.
 
-情境是多人共用的運算主機：使用者在送出工作之前想知道主機現在忙不忙，管理者想持續盯著負載。每個人各開一個 `pmon watch`，就會有多個 client 同時連在同一台 server 上。
+The scenario is a compute host shared by several people. A user wants to know how busy the host is before submitting a job, and an administrator wants to keep an eye on the load. Each of them runs `pmon watch`, so several clients are connected to the same server at the same time.
 
-| 指令 | 作用 |
+| Command | What it does |
 |---|---|
-| `pmon sysinfo` | 主機的靜態資訊：主機名稱、核心版本、CPU 數量、開機時間、記憶體與磁碟總量 |
-| `pmon stat` | 目前的效能數據，取樣一次 |
-| `pmon watch [-i 秒] [-n 次數]` | 每隔一段時間顯示一列效能數據，直到按 Ctrl+C 或達到次數 |
+| `pmon sysinfo` | Static facts about the host: host name, kernel version, number of CPUs, boot time, total memory and disk |
+| `pmon stat` | Current performance figures, sampled once |
+| `pmon watch [-i seconds] [-n count]` | Prints one line of figures at a fixed interval, until Ctrl+C or the count is reached |
 
-## 1.2 題目要求對照
+## 1.2 Requirements and where they are covered
 
-| 題目要求 | 做法 | 本報告章節 |
+| Requirement | How it is met | Sections |
 |---|---|---|
-| server 用 `fork()` 為每個連線建立 child，不用 thread | parent 只負責 accept 與 fork | 2.3、3.1、4.2 |
-| 至少 10 個 client 同時連線，附執行期證明 | 10 個 client 同時 `watch`，以 `ps`、`ss`、server log 三方對照 | 4.2 |
-| 封包擷取與分析 | `tcpdump` 擷取 loopback 與跨機兩份，跨機那份另用 Wireshark 檢視 | 6 |
-| 編譯期與執行期兩層 debug log 控制 | 編譯期巨集；執行期參數、環境變數、`SIGUSR1` | 2.4、3.4、4.3 |
-| client 與 server 共用的函式包成動態函式庫 | `libpmon.so` | 2.5、3.6、4.4 |
-| client 向 server 要系統資訊 | `sysinfo`、`stat`、`watch` | 4.1 |
-| 強健性機制，至少三組有與沒有的對照 | 四個機制各有一個關閉參數 | 5 |
-| 用 Makefile 或 CMake 建置 | 手寫 Makefile | 3.6 |
+| The server uses `fork()` for each client connection, no threads | The parent only accepts and forks | 2.3, 3.1, 4.2 |
+| At least 10 concurrent clients, with runtime proof | 10 clients run `watch` at once; `ps`, `ss` and the server log are compared | 4.2 |
+| Packet capture and analysis | `tcpdump` on loopback and between two machines; the cross-machine capture is also viewed in Wireshark | 6 |
+| Two levels of debug log control: compile time and runtime | A compile-time macro; at runtime an option, an environment variable and `SIGUSR1` | 2.4, 3.4, 4.3 |
+| Shared utility functions in a dynamic shared library used by both sides | `libpmon.so` | 2.5, 3.6, 4.4 |
+| The client requests system information from the server | `sysinfo`, `stat`, `watch` | 4.1 |
+| Robustness mechanisms, at least three examples with and without | Four mechanisms, each with an option that turns it off | 5 |
+| Built with Makefile or CMake | A hand-written Makefile | 3.6 |
 
-## 1.3 開發與測試環境
+## 1.3 Development and test environment
 
-| 主機 | 角色 | 規格 | 測試網段位址 |
+| Host | Role | Specification | Test network address |
 |---|---|---|---|
-| `nsp-server` | 開發、編譯、執行 server | 2 vCPU、4 GB、Ubuntu 24.04、gcc 13.3 | 10.77.0.10 |
-| `nsp-client-1` | 執行 client | 1 vCPU、2 GB、沒有編譯器 | 10.77.0.21 |
-| `nsp-client-2` | 執行 client | 1 vCPU、2 GB、沒有編譯器 | 10.77.0.22 |
+| `nsp-server` | Development, compilation, runs the server | 2 vCPU, 4 GB, Ubuntu 24.04, gcc 13.3 | 10.77.0.10 |
+| `nsp-client-1` | Runs clients | 1 vCPU, 2 GB, no compiler | 10.77.0.21 |
+| `nsp-client-2` | Runs clients | 1 vCPU, 2 GB, no compiler | 10.77.0.22 |
 
-三台是 OpenStack 上的虛擬機，接在一個不對外的獨立測試網段。原始碼只在 `nsp-server` 上編譯，`make deploy` 把 client 執行檔與函式庫複製到兩台 client 主機。本報告的所有輸出都是在這個環境實際執行的結果。
+The three hosts are virtual machines on OpenStack, attached to an isolated test network with no outside access. The source is compiled only on `nsp-server`; `make deploy` copies the client executable and the library to the two client hosts. Every output in this report was produced by actually running the programs in this environment.
 
-# 2. 系統設計
+# 2. System Design
 
-## 2.1 元件
+## 2.1 Components
 
-| 元件 | 檔名 | 原始碼 | 角色 |
+| Component | File | Source | Role |
 |---|---|---|---|
-| Server | `pmond` | `server/` | 接受連線、fork child、從 `/proc` 讀取效能數據 |
-| Client | `pmon` | `client/` | 命令列工具，送出請求並顯示結果 |
-| 共用函式庫 | `libpmon.so` | `lib/`、`include/pmon.h` | log、可靠讀寫、協定、`key=value` 文字處理 |
+| Server | `pmond` | `server/` | Accepts connections, forks a child for each, reads performance figures from `/proc` |
+| Client | `pmon` | `client/` | Command-line tool that sends requests and prints the results |
+| Shared library | `libpmon.so` | `lib/`, `include/pmon.h` | Logging, reliable read and write, the protocol, `key=value` text handling |
 
-## 2.2 通訊協定
+## 2.2 Protocol
 
-使用 TCP，預設埠 9419。請求與回應是同一種訊框：12 位元組標頭，後面接 0 到 65536 位元組的內容。多位元組欄位為 network byte order。
+The protocol runs over TCP, port 9419 by default. Requests and responses use the same frame: a 12-byte header followed by 0 to 65536 bytes of payload. Multi-byte fields are in network byte order.
 
-| 位移 | 長度 | 欄位 | 說明 |
+| Offset | Size | Field | Meaning |
 |---|---|---|---|
-| 0 | 2 | magic | 固定 `0x504D`（ASCII `PM`） |
-| 2 | 1 | opcode | 操作碼 |
-| 3 | 1 | status | 回應的結果碼，請求中為 0 |
-| 4 | 4 | length | 內容的位元組數，上限 64 KiB |
-| 8 | 4 | crc32 | 內容的 CRC-32 |
+| 0 | 2 | magic | Always `0x504D` (ASCII `PM`) |
+| 2 | 1 | opcode | Operation code |
+| 3 | 1 | status | Result code of a response, 0 in a request |
+| 4 | 4 | length | Number of payload bytes, at most 64 KiB |
+| 8 | 4 | crc32 | CRC-32 of the payload |
 
-內容是 `key=value` 的文字行。
+The payload is lines of `key=value` text.
 
-| 操作碼 | 名稱 | 請求內容 | 回應內容 |
+| Opcode | Name | Request payload | Response payload |
 |---|---|---|---|
-| 1 | SYSINFO | 無 | 主機的靜態資訊 |
-| 2 | STAT | 無 | 一次效能數據 |
-| 3 | WATCH | `interval`（1 到 60 秒）、`count`（0 表示不限） | 每隔 interval 推送一個訊框，內容同 STAT |
+| 1 | SYSINFO | None | Static facts about the host |
+| 2 | STAT | None | One set of performance figures |
+| 3 | WATCH | `interval` (1 to 60 seconds), `count` (0 means no limit) | One frame every interval, same content as STAT |
 
-| 結果碼 | 意義 |
+| Status | Meaning |
 |---|---|
-| 0 OK | 成功 |
-| 1 BAD_REQUEST | 訊框格式錯誤、未知的操作碼、參數超出範圍 |
-| 2 BUSY | 連線數已達上限 |
-| 3 INTERNAL | server 內部錯誤 |
+| 0 OK | Success |
+| 1 BAD_REQUEST | Malformed frame, unknown opcode, or a parameter out of range |
+| 2 BUSY | The connection limit has been reached |
+| 3 INTERNAL | An error inside the server |
 
-## 2.3 Server 的行程模型與流程
+## 2.3 Server process model and flow
 
-下圖是一條連線從建立到結束的完整流程，三條直線分別是 client、server 的 parent 與 child。
+The diagram below shows one connection from start to finish. The three vertical lines are the client, the server parent and the server child.
 
 @image ../diagrams/flow.png
 
-- client 的 `connect()` 由 parent 的 `accept()` 接起來，parent 接著 `fork()`，把這條連線交給 child。
-- `fork()` 之後兩邊各關掉自己用不到的描述子：parent 關連線，child 關 listen socket。parent 回到 `poll()` 等下一個 client，所以圖中請求與回應的箭頭都越過 parent，直接到 child。
-- 虛線框內是 child 的請求迴圈，一條連線可以送多個請求。
-- client 關閉連線後，child 讀到 EOF 就結束。核心送 `SIGCHLD` 給 parent，parent 用 `waitpid()` 回收並寫 log。
+- The client's `connect()` is answered by the parent's `accept()`. The parent then calls `fork()` and hands the connection to the child.
+- After `fork()` each side closes the descriptor it does not need: the parent closes the connection, the child closes the listening socket. The parent goes back to `poll()` to wait for the next client, which is why the request and response arrows in the diagram pass over the parent and go straight to the child.
+- The dashed box is the child's request loop. One connection can carry several requests.
+- When the client closes the connection, the child reads EOF and exits. The kernel sends `SIGCHLD` to the parent, which reaps the child with `waitpid()` and writes a log line.
 
-多個 client 連線時，每條連線各有一個 child：
+With several clients connected, each connection has its own child:
 
 ```
-pmond (parent)   socket → bind → listen → 主迴圈
-  ├─ child  ← client A
-  ├─ child  ← client B
-  └─ ...
+pmond (parent)   socket -> bind -> listen -> main loop
+  |- child  <- client A
+  |- child  <- client B
+  `- ...
 ```
 
-parent 的主迴圈：
+The parent's main loop:
 
-1. 用 `poll()` 等待 listen socket 有新連線，最多等一秒。
-2. 有連線就 `accept()`。child 數量已達上限（預設 64）時，回一個 BUSY 訊框並關閉。
-3. `fork()`。child 關掉 listen socket，進入請求迴圈；parent 關掉連線的 socket，記下 child 的 pid，回到步驟 1。
-4. 每一輪開頭檢查訊號旗標：有 child 結束就回收，被要求結束就離開迴圈。
+1. Wait with `poll()` for a new connection on the listening socket, for at most one second.
+2. Call `accept()` when there is one. If the number of children has reached the limit (64 by default), reply with a BUSY frame and close.
+3. Call `fork()`. The child closes the listening socket and enters the request loop. The parent closes the connection socket, records the child's pid and returns to step 1.
+4. At the start of every round, check the signal flags: reap children that have exited, and leave the loop if asked to stop.
 
-child 的請求迴圈：讀一個訊框，檢查，處理，回應，重複到 client 斷線為止，然後結束行程。
+The child's request loop: read a frame, check it, handle it, reply, and repeat until the client disconnects; then the process exits.
 
-一次 `watch` 的流程：
+The flow of one `watch`:
 
 ```
 client                              server (child)
-  | WATCH interval=1 count=0 -----> |  取第一次樣本
-  |                                 |  等 1 秒（同時留意 client 是否離開）
-  | <------------- WATCH OK 數據    |  取樣、計算、送出
-  |                                 |  等 1 秒
-  | <------------- WATCH OK 數據    |
-  | （Ctrl+C，連線關閉）             |  發現連線關閉，結束
+  | WATCH interval=1 count=0 -----> |  take the first sample
+  |                                 |  wait 1 s (and notice if the client leaves)
+  | <----------- WATCH OK figures   |  sample, compute, send
+  |                                 |  wait 1 s
+  | <----------- WATCH OK figures   |
+  | (Ctrl+C, connection closed)     |  sees the connection closed, exits
 ```
 
-訊號的處理方式：訊號處理函式只設定旗標，實際的工作在主迴圈做。訊號處理函式裡不能安全地呼叫 `printf` 這類函式，把工作移到主迴圈之後，回收 child 時就能寫 log，包括 child 是被哪個訊號殺掉的。
+Signal handling: a signal handler only sets a flag, and the real work is done in the main loop. Functions such as `printf` are not safe to call inside a signal handler. Moving the work into the main loop means the parent can write a log line when it reaps a child, including which signal killed the child.
 
-| 訊號 | parent 的反應 |
+| Signal | What the parent does |
 |---|---|
-| `SIGCHLD` | 用 `waitpid(-1, WNOHANG)` 迴圈回收所有結束的 child |
-| `SIGINT`、`SIGTERM` | 停止接受連線，通知所有 child 結束，等它們結束後離開 |
-| `SIGUSR1` | 切換 debug 輸出的開關 |
-| `SIGPIPE` | 忽略，寫入失敗改由 `send()` 的回傳值得知 |
+| `SIGCHLD` | Reaps every exited child in a `waitpid(-1, WNOHANG)` loop |
+| `SIGINT`, `SIGTERM` | Stops accepting connections, tells every child to exit, waits for them and then leaves |
+| `SIGUSR1` | Toggles debug output |
+| `SIGPIPE` | Ignored; a failed write is reported by the return value of `send()` |
 
-## 2.4 兩層 debug log
+## 2.4 Two levels of debug logging
 
-| 層 | 怎麼控制 | 效果 |
+| Level | How it is controlled | Effect |
 |---|---|---|
-| 編譯期 | `make` 與 `make DEBUG=1` | 一般建置中 `LOG_DEBUG()` 不產生任何程式碼，除錯訊息的字串不在執行檔裡 |
-| 執行期 | `-v` 參數、環境變數 `PMON_LOG=debug`、對 server 送 `SIGUSR1` | 在除錯建置中切換是否輸出 debug 訊息，不必重新編譯或重啟 |
+| Compile time | `make` versus `make DEBUG=1` | In a normal build `LOG_DEBUG()` produces no code, and the debug message strings are not in the executable |
+| Runtime | The `-v` option, the environment variable `PMON_LOG=debug`, or `SIGUSR1` sent to the server | In a debug build, switches debug output on and off without recompiling or restarting |
 
-編譯期決定「執行檔裡有沒有」，執行期決定「現在印不印」。
+Compile time decides whether the messages exist in the executable. Runtime decides whether they are printed now.
 
-log 的每一行包含時間、等級、程式名稱與 pid、原始檔與行號。pid 讓多個 child 混在一起的輸出可以分辨。每行用單一 `write()` 輸出，多個行程同時寫不會交錯。
+Every log line carries the time, the level, the program name and pid, and the source file and line number. The pid tells apart the output of several children. Each line is written with a single `write()`, so lines from different processes do not interleave.
 
 ```
 2026-11-12 10:25:41.398 [DEBUG] pmond[57521] server/pmond.c:197: forked child 57529 for 127.0.0.1:47636, 1 active
 ```
 
-## 2.5 共用函式庫
+## 2.5 Shared library
 
-| 模組 | 內容 | server 怎麼用 | client 怎麼用 |
+| Module | Content | Used by the server for | Used by the client for |
 |---|---|---|---|
-| `log` | 兩層控制與輸出格式 | 記錄連線與錯誤 | 除錯輸出 |
-| `io` | 帶逾時的完整讀寫 | 讀請求、送回應 | 送請求、讀回應 |
-| `proto` | 訊框的收送與檢查、CRC-32 | 同上 | 同上 |
-| `kv` | 從 `key=value` 文字取值 | 讀 `watch` 的參數 | 從回應取出各項數據排成表格 |
+| `log` | The two-level control and the output format | Recording connections and errors | Debug output |
+| `io` | Complete read and write with a timeout | Reading requests, sending responses | Sending requests, reading responses |
+| `proto` | Sending, receiving and checking frames; CRC-32 | Same as above | Same as above |
+| `kv` | Getting a value out of `key=value` text | Reading the `watch` parameters | Picking figures out of a response to print a table |
 
-四個模組兩邊都實際用到。函式庫以 `-fPIC -shared` 建置；執行檔連結時加上 rpath `$ORIGIN/../lib`，執行時會到自己所在位置旁邊的 `lib/` 找函式庫，不必設定 `LD_LIBRARY_PATH`。
+Both programs really use all four modules. The library is built with `-fPIC -shared`. The executables are linked with the rpath `$ORIGIN/../lib`, so at run time they look for the library in the `lib/` directory next to their own location, and `LD_LIBRARY_PATH` does not have to be set.
 
-## 2.6 效能數據的來源
+## 2.6 Where the performance figures come from
 
-| 項目 | 來源 | 算法 |
+| Figure | Source | Calculation |
 |---|---|---|
-| CPU 使用率 | `/proc/stat` | 兩次取樣之間，非閒置時間佔全部時間的比例 |
-| 負載與行程數 | `/proc/loadavg` | 直接讀取 |
-| 記憶體、swap | `/proc/meminfo` | 總量減去可用量 |
-| 磁碟使用率 | `statvfs("/")` | 已用區塊佔可用區塊的比例 |
-| 網路收送速率 | `/proc/net/dev` | 兩次取樣之間的位元組差除以時間，不含 loopback |
+| CPU usage | `/proc/stat` | Share of non-idle time in the total time between two samples |
+| Load and number of tasks | `/proc/loadavg` | Read directly |
+| Memory, swap | `/proc/meminfo` | Total minus available |
+| Disk usage | `statvfs("/")` | Used blocks as a share of usable blocks |
+| Network receive and send rate | `/proc/net/dev` | Byte difference between two samples divided by the time, loopback excluded |
 
-CPU 與網路是變化率，需要兩次取樣。`stat` 間隔 0.2 秒取兩次；`watch` 用相鄰兩次推送當作區間。
+CPU and network figures are rates, so they need two samples. `stat` takes two samples 0.2 seconds apart; `watch` uses two consecutive pushes as the interval.
 
-# 3. 關鍵程式碼說明
+# 3. Key Source Code
 
-## 3.1 parent：accept 與 fork（`server/pmond.c`）
+## 3.1 The parent: accept and fork (`server/pmond.c`)
 
 ```c
 pid = fork();
@@ -191,12 +191,12 @@ if (pid < 0) {
 close(fd);
 ```
 
-- `fork()` 之後兩個行程都持有 listen socket 和連線的 socket。child 關掉 listen socket，parent 關掉連線的 socket。parent 如果不關，連線數一多就會用完檔案描述符，而且 child 結束後連線也不會真的關閉。
-- child 把訊號處理還原成預設，因為它沒有自己的 child 要回收，收到 `SIGTERM` 應該直接結束。
-- child 用 `_exit()` 而不是 `exit()`，避免把從 parent 繼承來的緩衝區再輸出一次。
-- `fork()` 失敗時回 BUSY 給 client，server 繼續服務其他人。
+- After `fork()` both processes hold the listening socket and the connection socket. The child closes the listening socket and the parent closes the connection socket. If the parent did not, it would run out of file descriptors as connections accumulate, and a connection would not really close when its child exits.
+- The child restores the default signal handling. It has no children of its own to reap, and `SIGTERM` should simply end it.
+- The child calls `_exit()` and not `exit()`, so that buffers inherited from the parent are not flushed a second time.
+- If `fork()` fails, the client gets a BUSY reply and the server keeps serving everyone else.
 
-## 3.2 回收 child（`server/pmond.c`）
+## 3.2 Reaping children (`server/pmond.c`)
 
 ```c
 static void on_sigchld(int sig)
@@ -212,7 +212,7 @@ static void reap_children(void)
 
     g_child_exited = 0;
     while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
-        /* 從 pid 表移除 */
+        /* remove the pid from the table */
         if (WIFSIGNALED(status))
             LOG_ERROR("child %d was killed by signal %d (%s), %d still active",
                       (int)pid, WTERMSIG(status), strsignal(WTERMSIG(status)),
@@ -221,11 +221,11 @@ static void reap_children(void)
 }
 ```
 
-- 用迴圈而不是只呼叫一次 `waitpid`：多個 child 幾乎同時結束時，`SIGCHLD` 可能只送達一次。
-- `WNOHANG` 讓 `waitpid` 在沒有結束的 child 時立刻返回，不會卡住主迴圈。
-- 主迴圈的 `poll()` 設了一秒逾時。如果訊號剛好在檢查旗標之後、進入 `poll()` 之前到達，最多一秒後也會被處理。
+- A loop is used, not a single `waitpid` call: when several children exit at almost the same moment, `SIGCHLD` may be delivered only once.
+- `WNOHANG` makes `waitpid` return at once when no child has exited, so the main loop is never blocked.
+- The `poll()` in the main loop has a one-second timeout. If a signal arrives just after the flag is checked and just before `poll()` is entered, it is still handled within one second.
 
-## 3.3 接收訊框時的檢查（`lib/proto.c`）
+## 3.3 Checking a received frame (`lib/proto.c`)
 
 ```c
 if (validate) {
@@ -243,9 +243,9 @@ if (validate) {
 body = malloc((size_t)n + 1);
 ```
 
-標頭裡的 length 決定接下來要配置多少記憶體、要等多少資料。它來自網路，在檢查之前不能相信。順序是先檢查 magic 與長度上限，才配置記憶體，讀完內容後再比對 CRC。5.2 節示範了少了這段檢查會發生什麼事。
+The length in the header decides how much memory is allocated next and how much data the receiver waits for. It comes from the network and cannot be trusted before it is checked. The order is: check the magic and the length limit, then allocate memory, then read the payload and compare the CRC. Section 5.2 shows what happens without this check.
 
-## 3.4 `LOG_DEBUG` 巨集（`include/pmon.h`）
+## 3.4 The `LOG_DEBUG` macro (`include/pmon.h`)
 
 ```c
 #ifdef PMON_DEBUG
@@ -256,11 +256,11 @@ body = malloc((size_t)n + 1);
 #endif
 ```
 
-- 除錯建置（`-DPMON_DEBUG`）時是真的呼叫 `log_write`，是否輸出由執行期的開關決定。
-- 一般建置時是一段永遠不會執行的程式碼。編譯器會把呼叫連同格式字串一起刪掉，但仍然檢查參數的型別，變數也算有被使用，不會因為 `-Werror` 而編譯失敗。
-- `__FILE__` 與 `__LINE__` 必須寫在巨集裡，才會是呼叫處的檔名與行號。
+- In a debug build (`-DPMON_DEBUG`) it is a real call to `log_write`, and the runtime switch decides whether anything is printed.
+- In a normal build it is code that can never run. The compiler removes the call together with the format string, but still checks the argument types, and the variables still count as used, so the build does not fail under `-Werror`.
+- `__FILE__` and `__LINE__` have to be written in the macro so that they give the file and line of the caller.
 
-## 3.5 可靠的讀取（`lib/io.c`）
+## 3.5 Reliable reading (`lib/io.c`)
 
 ```c
 while (got < n) {
@@ -287,12 +287,12 @@ while (got < n) {
 }
 ```
 
-- TCP 是位元組串流，一次 `read()` 可能只拿到一部分，所以用迴圈讀到滿為止。
-- 先 `poll()` 再 `read()`，對方不送資料時會在期限後返回 `IO_TIMEOUT`，不會永遠卡在 `read()`。
-- 被訊號中斷（`EINTR`）時重試，不當成錯誤。server 會收到 `SIGUSR1`，這個處理是必要的。
-- 逾時、對方關閉、錯誤用不同的回傳值區分，呼叫的人可以記錄真正的原因。
+- TCP is a byte stream and one `read()` may return only part of the data, so the loop reads until everything has arrived.
+- `poll()` is called before `read()`. If the peer sends nothing, the function returns `IO_TIMEOUT` after the deadline and never blocks in `read()` forever.
+- An interruption by a signal (`EINTR`) is retried and not treated as an error. The server receives `SIGUSR1`, so this is necessary.
+- Timeout, peer closed and error have different return values, so the caller can log the real reason.
 
-## 3.6 Makefile：共用函式庫的建置
+## 3.6 Makefile: building the shared library
 
 ```make
 LDLIBS := -L$(BUILD)/lib -lpmon -Wl,-rpath,'$$ORIGIN/../lib'
@@ -307,13 +307,13 @@ $(SERVER): $(SERVER_OBJ) $(LIB)
 	$(CC) -o $@ $(SERVER_OBJ) $(LDLIBS)
 ```
 
-- 函式庫的物件檔加 `-fPIC`，產生位置無關的程式碼，才能被載入到任意位址。
-- `-shared` 把物件檔連結成 `libpmon.so`。
-- 執行檔用 `-lpmon` 連結，函式庫的程式碼不會被複製進執行檔。
-- `make DEBUG=1` 加上 `-DPMON_DEBUG -g -O0`，輸出到另一個目錄 `build-debug/`，兩種建置可以並存比較。
-- 所有檔案都以 `-std=c11 -Wall -Wextra -Werror` 編譯，目前沒有任何警告。
+- The library's object files are compiled with `-fPIC`, which produces position-independent code that can be loaded at any address.
+- `-shared` links the object files into `libpmon.so`.
+- The executables are linked with `-lpmon`; the library code is not copied into them.
+- `make DEBUG=1` adds `-DPMON_DEBUG -g -O0` and writes to a separate directory, `build-debug/`, so both builds can exist side by side and be compared.
+- Every file is compiled with `-std=c11 -Wall -Wextra -Werror`, and there are currently no warnings.
 
-## 3.7 client 的指令表與選項解析（`client/pmon.c`）
+## 3.7 The client's command table and option parsing (`client/pmon.c`)
 
 ```c
 static const struct command {
@@ -328,8 +328,8 @@ static const struct command {
 };
 ```
 
-- 所有指令宣告在一張表裡，每一列有名稱、負責執行的函式（函式指標）與說明文字。`main()` 查表後呼叫，`usage()` 也從同一張表印出說明。新增指令只要加一列。
-- 選項分兩層解析。`main()` 用 `getopt(argc, argv, "+s:vh")` 處理指令名稱之前的全域選項，開頭的 `+` 讓它遇到指令名稱就停下；接著把 `argv` 移到指令名稱的位置、重設 `optind`，交給各指令用自己的規格再解析一次。所以 `-i 2`、`-i2`、選項順序互換都能接受，行為與系統上的其他工具一致。
+- All commands are declared in one table. Each row has a name, the function that runs it (a function pointer) and its help text. `main()` looks the command up and calls it, and `usage()` prints the help from the same table. Adding a command means adding one row.
+- Options are parsed at two levels. `main()` uses `getopt(argc, argv, "+s:vh")` for the global options before the command name; the leading `+` makes it stop at the command name. It then moves `argv` to the command name, resets `optind`, and lets the command parse the rest with its own option string. So `-i 2`, `-i2` and options in any order are all accepted, the same as other tools on the system.
 
 ```c
 static int parse_int(const char *text, const char *what, int min, int max, int *out)
@@ -349,163 +349,163 @@ static int parse_int(const char *text, const char *what, int min, int max, int *
 }
 ```
 
-- 選項的數值用 `strtol` 轉換而不是 `atoi`。`atoi("abc")` 會回傳 0、`atoi("5x")` 會回傳 5，都不報錯；`strtol` 可以檢查整個字串是否都是數字（`*end` 必須是字串結尾）以及是否溢位（`errno`）。
-- 不合法時明確指出是哪個選項、允許的範圍與實際收到的內容，例如 `pmon: -i must be a number from 1 to 60, not '5x'`。
+- Option values are converted with `strtol`, not `atoi`. `atoi("abc")` returns 0 and `atoi("5x")` returns 5, both without reporting an error. `strtol` makes it possible to check that the whole string is a number (`*end` must be the end of the string) and that it did not overflow (`errno`).
+- An invalid value produces a message that names the option, the allowed range and what was received, for example `pmon: -i must be a number from 1 to 60, not '5x'`.
 
-# 4. 執行結果
+# 4. Execution Results
 
-以下各節是 `demo/` 目錄中對應腳本的執行畫面截圖。每支腳本會自己啟動與關閉 server。截圖是在 `nsp-server` 上以終端機程式 xterm 執行腳本後擷取的畫面，由 `docs/report/screenshots.sh` 產生；文字版的輸出另存在 `docs/output/`。
+The sections below are screenshots of the matching scripts in the `demo/` directory. Each script starts and stops the server by itself. The screenshots were taken on `nsp-server` by running each script in the terminal program xterm, and are produced by `docs/report/screenshots.sh`. The same output is kept as text in `docs/output/`.
 
-## 4.1 基本功能：client 向 server 要系統資訊
+## 4.1 Basic function: the client requests system information
 
 `demo/01-basic.sh`
 
 @image ../screenshots/01-basic.png
 
-## 4.2 fork 與 10 個 client 同時連線
+## 4.2 fork and 10 concurrent clients
 
-`demo/02-ten-clients.sh`：在同一台主機上啟動 10 個 client，各自 `watch` 6 秒。三項證明互相對照：
+`demo/02-ten-clients.sh` starts 10 clients on the same host, each running `watch` for 6 seconds. Three pieces of evidence agree with each other:
 
-- 行程樹：1 個 parent 底下有 10 個 child。
-- TCP 連線：埠 9419 上有 10 條已建立的連線。
-- 每個 client 回報的 server pid 都不同，與行程樹中的 10 個 child 一致。
+- Process tree: 1 parent with 10 children under it.
+- TCP connections: 10 established connections on port 9419.
+- Each client reports a different server pid, and these match the 10 children in the process tree.
 
 @image ../screenshots/02-ten-clients.png
 
-`demo/02-ten-clients.sh remote`：改由兩台 client 主機各啟動 5 個 client。server 端看到的連線來自兩個不同的位址，各 5 條。
+`demo/02-ten-clients.sh remote` starts 5 clients on each of the two client hosts instead. The server sees connections from two different addresses, 5 from each.
 
 @image ../screenshots/02-ten-clients-remote.png
 
-## 4.3 兩層 debug log 控制
+## 4.3 Two levels of debug log control
 
 `demo/04-debug-log.sh`
 
-- 編譯期：同一句除錯訊息在一般建置的執行檔裡出現 0 次，在除錯建置裡出現 1 次；一般建置即使加上 `-v` 也沒有任何 debug 輸出。
-- 執行期：除錯建置預設不輸出；對執行中的 server 送 `SIGUSR1` 之後開始輸出，再送一次就停止。
+- Compile time: the same debug message appears 0 times in the normal executable and once in the debug executable. The normal build prints no debug output even with `-v`.
+- Runtime: the debug build prints no debug output by default. After `SIGUSR1` is sent to the running server it starts printing, and a second `SIGUSR1` stops it.
 
 @image ../screenshots/04-debug-log.png
 
-## 4.4 共用動態函式庫
+## 4.4 Shared dynamic library
 
 `demo/05-shared-lib.sh`
 
-- 兩個執行檔的動態區段都記錄需要 `libpmon.so`，搜尋路徑是 `$ORIGIN/../lib`。
-- `proto_send` 在兩個執行檔裡都是未定義符號，執行時才從函式庫解析。
-- 把函式庫移走之後，程式無法啟動。
-- server 與兩台 client 主機上的函式庫雜湊值相同，是同一個檔案。
+- The dynamic section of both executables records that `libpmon.so` is needed, with the search path `$ORIGIN/../lib`.
+- `proto_send` is an undefined symbol in both executables and is resolved from the library at run time.
+- With the library moved away, the program cannot start.
+- The library has the same hash on the server and on the two client hosts: it is the same file.
 
 @image ../screenshots/05-shared-lib.png
 
-## 4.5 全部要求的自動檢查
+## 4.5 Automatic check of every requirement
 
-`demo/verify.sh` 不使用前面的 demo 腳本。它自己重新建置兩種版本、啟動 server，逐條檢查題目要求並印出 PASS 或 FAIL。以下是完整輸出，50 項全部通過。
+`demo/verify.sh` does not use the demo scripts above. It rebuilds both variants, starts the server by itself, checks every requirement in turn and prints PASS or FAIL. The complete output follows; all 54 checks pass.
 
 @include docs/output/verify.txt
 
-# 5. 強健性機制
+# 5. Robustness Mechanisms
 
-四個機制各有一個關閉參數。每支腳本先關掉機制執行一次，再開啟機制執行一次，其他條件完全相同。關閉參數只用於示範，server 啟動時會記錄一行警告。
+Each of the four mechanisms has an option that turns it off. Every script runs once with the mechanism off and once with it on, with everything else identical. The options exist only for demonstration, and the server logs a warning at start-up when one is used.
 
-| 編號 | 異常狀況 | 機制 | 關閉參數 |
+| No. | Abnormal situation | Mechanism | Option to turn it off |
 |---|---|---|---|
-| R1 | child 結束 | `SIGCHLD` + `waitpid` 迴圈 | `--no-reap` |
-| R2 | 收到不是本協定的資料 | 檢查 magic、長度上限、CRC | `--no-validate` |
-| R3 | client 連上後不送資料 | 讀取逾時 | `--no-timeout` |
-| R4 | `watch` 途中 client 被強制結束 | 等待時留意連線是否關閉；忽略 `SIGPIPE`，由 `send()` 回傳 `EPIPE` | `--no-sigpipe` |
+| R1 | A child exits | `SIGCHLD` and a `waitpid` loop | `--no-reap` |
+| R2 | Data that is not this protocol arrives | Check the magic, the length limit and the CRC | `--no-validate` |
+| R3 | A client connects and sends nothing | Read timeout | `--no-timeout` |
+| R4 | The client is killed in the middle of `watch` | Notice a closed connection while waiting; ignore `SIGPIPE` and let `send()` return `EPIPE` | `--no-sigpipe` |
 
-## 5.1 R1：回收結束的 child
+## 5.1 R1: reaping exited children
 
-`demo/r1-zombie.sh`：連續執行 5 次 `pmon stat`，然後看 server 的 child。
+`demo/r1-zombie.sh` runs `pmon stat` five times in a row and then looks at the server's children.
 
-- 沒有機制：5 個 child 都停在狀態 `Z`（殭屍）。它們已經結束，但行程表的項目沒有被釋放。長時間執行的 server 會因此用完行程數上限。
-- 有機制：沒有殘留。
+- Without the mechanism: all 5 children stay in state `Z` (zombie). They have exited, but their process table entries are not released. A long-running server would eventually hit the process limit.
+- With the mechanism: nothing is left behind.
 
 @image ../screenshots/r1-zombie.png
 
-## 5.2 R2：拒絕不合協定的資料
+## 5.2 R2: rejecting data that is not the protocol
 
-`demo/r2-validate.sh`：用 `curl` 對 server 的埠送出 HTTP 請求。
+`demo/r2-validate.sh` sends an HTTP request to the server's port with `curl`.
 
-- 沒有機制：child 把 `GET / HTTP/1.1` 的前 12 個位元組當成標頭。第 4 到 7 個位元組 `/ HT` 被解讀成長度 `0x2f204854`，約 754 MiB。child 配置了這麼多記憶體（輸出中的 756 MB）並等待永遠不會來的資料，`curl` 等到逾時。任何人只要送 12 個位元組就能讓 server 佔用大量記憶體。
-- 有機制：child 發現 magic 不是 `PM`，立刻回 BAD_REQUEST 並斷線，沒有配置任何記憶體。
+- Without the mechanism: the child treats the first 12 bytes of `GET / HTTP/1.1` as a header. Bytes 4 to 7, `/ HT`, are read as the length `0x2f204854`, about 754 MiB. The child allocates that much memory (756 MB in the output) and waits for data that will never come; `curl` waits until it times out. Anyone can make the server hold a large amount of memory by sending 12 bytes.
+- With the mechanism: the child sees that the magic is not `PM`, replies BAD_REQUEST at once and disconnects, without allocating any memory.
 
 @image ../screenshots/r2-validate.png
 
-## 5.3 R3：不送資料的 client
+## 5.3 R3: a client that sends nothing
 
-`demo/r3-timeout.sh`：用 `nc` 連上 server 後什麼都不送。
+`demo/r3-timeout.sh` connects to the server with `nc` and sends nothing.
 
-- 沒有機制：5 秒後 child 還在。每一個這樣的連線永久佔用一個 child，連線數達到上限後其他人就連不進來。
-- 有機制：3 秒後 child 記錄逾時並結束。（示範用 3 秒，預設是 10 秒。）
+- Without the mechanism: the child is still there after 5 seconds. Every such connection occupies a child forever, and once the connection limit is reached nobody else can connect.
+- With the mechanism: after 3 seconds the child logs the timeout and exits. (The demo uses 3 seconds; the default is 10.)
 
 @image ../screenshots/r3-timeout.png
 
-## 5.4 R4：client 中途消失
+## 5.4 R4: a client that disappears
 
-`demo/r4-sigpipe.sh`：`pmon watch` 執行到一半時用 `kill -9` 強制結束 client。
+`demo/r4-sigpipe.sh` kills the client with `kill -9` in the middle of `pmon watch`.
 
-- 沒有機制：child 繼續往已關閉的連線寫入，被核心以 `SIGPIPE` 殺掉。parent 的 log 記錄了 `killed by signal 13 (Broken pipe)`。child 來不及做任何清理。
-- 有機制：child 在等待下一次取樣時發現連線已關閉，記錄後正常結束。
+- Without the mechanism: the child keeps writing to the closed connection and is killed by the kernel with `SIGPIPE`. The parent's log records `killed by signal 13 (Broken pipe)`. The child has no chance to clean up.
+- With the mechanism: while waiting for the next sample the child notices that the connection is closed, logs it and exits normally.
 
 @image ../screenshots/r4-sigpipe.png
 
-## 5.5 其他已實作的機制
+## 5.5 Other mechanisms in the code
 
-以下沒有設關閉參數，但同樣在程式中：
+These have no option to turn them off, but are also implemented:
 
-- 讀寫都用迴圈處理短讀、短寫與 `EINTR`（3.5 節）。
-- 連線數上限，超過時回 BUSY；`fork()` 失敗時同樣回 BUSY，server 不會結束。
-- 拒絕非法資料時先送出錯誤回覆、讀掉對方已送來的資料再關閉。直接關閉會讓核心送出重置，對方收不到回覆。這是測試時實際遇到後修正的問題。
-- 參數檢查：client 以 `strtol` 驗證選項的數值（3.7 節），server 再檢查一次 `watch` 的參數範圍，不信任 client。
-- `SO_REUSEADDR`，server 重啟不必等待。
-- client 的連線逾時（5 秒）與回應逾時（15 秒）。
-- 收到 `SIGINT` 或 `SIGTERM` 時，parent 通知所有 child 結束並等待它們，不留下孤兒行程。
+- Reads and writes loop to handle short reads, short writes and `EINTR` (section 3.5).
+- A connection limit, with a BUSY reply beyond it. A failed `fork()` also gets a BUSY reply and does not end the server.
+- When invalid data is rejected, the server sends the error reply and drains what the peer has already sent before closing. Closing directly makes the kernel send a reset, and the peer never sees the reply. This problem was met during testing and then fixed.
+- Parameter checks: the client validates option values with `strtol` (section 3.7), and the server checks the range of the `watch` parameters again and does not trust the client.
+- `SO_REUSEADDR`, so the server can be restarted without waiting.
+- A connect timeout (5 seconds) and a response timeout (15 seconds) in the client.
+- On `SIGINT` or `SIGTERM` the parent tells every child to exit and waits for them, leaving no orphan processes.
 
-# 6. 封包擷取與分析
+# 6. Packet Capture and Analysis
 
-`demo/03-capture.sh` 用 `tcpdump` 擷取一次 `pmon stat` 的完整連線。loopback 與跨機（`nsp-client-1` 到 `nsp-server`）各擷取一份，`.pcap` 檔在 `docs/capture/`。6.1 到 6.3 以 loopback 的擷取用 `tcpdump` 的輸出說明，6.5 用 Wireshark 檢視跨機的那一份。
+`demo/03-capture.sh` captures one complete `pmon stat` connection with `tcpdump`. One capture was taken on loopback and one between two machines (`nsp-client-1` to `nsp-server`); the `.pcap` files are in `docs/capture/`. Sections 6.1 to 6.3 explain the loopback capture using the `tcpdump` output, and section 6.5 views the cross-machine capture in Wireshark.
 
-## 6.1 整條連線：10 個封包
+## 6.1 The whole connection: 10 packets
 
-client 的埠是 58396，server 是 9419。
+The client's port is 58396 and the server's is 9419.
 
-| # | 時間 | 方向 | 旗標 | 資料長度 | 意義 |
+| # | Time | Direction | Flags | Data length | Meaning |
 |---|---|---|---|---|---|
-| 1 | .683795 | client → server | `S` | 0 | 三向交握：SYN |
-| 2 | .683806 | server → client | `S.` | 0 | 三向交握：SYN + ACK |
-| 3 | .683816 | client → server | `.` | 0 | 三向交握：ACK，連線建立 |
-| 4 | .683841 | client → server | `P.` | 12 | 請求訊框（只有標頭） |
-| 5 | .683845 | server → client | `.` | 0 | 確認收到請求 |
-| 6 | .884327 | server → client | `P.` | 195 | 回應訊框（12 位元組標頭 + 183 位元組內容） |
-| 7 | .884335 | client → server | `.` | 0 | 確認收到回應 |
-| 8 | .884371 | client → server | `F.` | 0 | client 關閉連線：FIN |
-| 9 | .884475 | server → client | `F.` | 0 | server 也關閉：FIN |
-| 10 | .884485 | client → server | `.` | 0 | 確認，連線結束 |
+| 1 | .683795 | client → server | `S` | 0 | Three-way handshake: SYN |
+| 2 | .683806 | server → client | `S.` | 0 | Three-way handshake: SYN + ACK |
+| 3 | .683816 | client → server | `.` | 0 | Three-way handshake: ACK, connection established |
+| 4 | .683841 | client → server | `P.` | 12 | Request frame (header only) |
+| 5 | .683845 | server → client | `.` | 0 | Acknowledges the request |
+| 6 | .884327 | server → client | `P.` | 195 | Response frame (12-byte header + 183-byte payload) |
+| 7 | .884335 | client → server | `.` | 0 | Acknowledges the response |
+| 8 | .884371 | client → server | `F.` | 0 | The client closes: FIN |
+| 9 | .884475 | server → client | `F.` | 0 | The server closes too: FIN |
+| 10 | .884485 | client → server | `.` | 0 | Acknowledgement, connection finished |
 
-- 封包 4 到 6 相隔 0.2 秒，是 server 計算 CPU 使用率時兩次取樣的間隔，不是網路延遲。
-- 請求與回應各只佔一個 TCP 封包，因為 `proto_send()` 把標頭和內容放進同一個緩衝區一次送出。
-- 由 client 先送 FIN；server 的 child 讀到 EOF 後結束，送出自己的 FIN。
-- 序號與資料長度一致：請求佔 `seq 1:13`，回應佔 `seq 1:196`。
+- Packets 4 and 6 are 0.2 seconds apart. That is the interval between the two samples the server takes to compute CPU usage, not network delay.
+- The request and the response each take a single TCP packet, because `proto_send()` puts the header and the payload into one buffer and sends them together.
+- The client sends FIN first. The server child reads EOF, exits, and sends its own FIN.
+- The sequence numbers match the data lengths: the request is `seq 1:13` and the response is `seq 1:196`.
 
-## 6.2 請求訊框
+## 6.2 The request frame
 
-封包 4 的 TCP 資料共 12 位元組：
+The TCP data of packet 4 is 12 bytes:
 
 ```
 504d 0200 0000 0000 0000 0000
 ```
 
-| 位元組 | 值 | 欄位 | 解讀 |
+| Bytes | Value | Field | Reading |
 |---|---|---|---|
 | 0–1 | `50 4d` | magic | ASCII `PM` |
 | 2 | `02` | opcode | 2 = STAT |
-| 3 | `00` | status | 請求固定為 0 |
-| 4–7 | `00 00 00 00` | length | 內容長度 0 |
-| 8–11 | `00 00 00 00` | crc32 | 空內容的 CRC-32 是 0 |
+| 3 | `00` | status | Always 0 in a request |
+| 4–7 | `00 00 00 00` | length | Payload length 0 |
+| 8–11 | `00 00 00 00` | crc32 | The CRC-32 of an empty payload is 0 |
 
-## 6.3 回應訊框
+## 6.3 The response frame
 
-封包 6 的 TCP 資料共 195 位元組，以下是 `tcpdump -X` 的輸出：
+The TCP data of packet 6 is 195 bytes. This is the output of `tcpdump -X`:
 
 ```
 0x0030:  9b56 241c 504d 0200 0000 00b7 1165 f848  .V$.PM.......e.H
@@ -515,106 +515,110 @@ client 的埠是 58396，server 是 9419。
 0x0070:  656d 5f74 6f74 616c 5f6d 623d 3339 3135  em_total_mb=3915
 ```
 
-| 位元組 | 值 | 欄位 | 解讀 |
+| Bytes | Value | Field | Reading |
 |---|---|---|---|
 | 0–1 | `50 4d` | magic | `PM` |
-| 2 | `02` | opcode | 2 = STAT，與請求相同 |
+| 2 | `02` | opcode | 2 = STAT, same as the request |
 | 3 | `00` | status | 0 = OK |
-| 4–7 | `00 00 00 b7` | length | 0xb7 = 183 位元組 |
-| 8–11 | `11 65 f8 48` | crc32 | 內容的 CRC-32 |
-| 12 起 | `74 69 6d 65 3d ...` | 內容 | `time=10:26:04`、`cpu_pct=2.5` 等文字行 |
+| 4–7 | `00 00 00 b7` | length | 0xb7 = 183 bytes |
+| 8–11 | `11 65 f8 48` | crc32 | CRC-32 of the payload |
+| 12 onward | `74 69 6d 65 3d ...` | payload | Text lines such as `time=10:26:04` and `cpu_pct=2.5` |
 
-- 長度 183 寫成 `00 00 00 b7`，高位在前，是 network byte order。程式用 `put32()`、`get32()` 逐位元組組合，不依賴機器的位元組順序。
-- TCP 資料長度 195 等於標頭 12 加內容 183，與 length 欄位一致。
-- 內容是明文，在輸出右側可以直接閱讀。
+- The length 183 is written as `00 00 00 b7`, most significant byte first, which is network byte order. The program builds it byte by byte with `put32()` and `get32()` and does not depend on the machine's byte order.
+- The TCP data length of 195 equals the 12-byte header plus the 183-byte payload, in agreement with the length field.
+- The payload is plain text and can be read directly on the right side of the output.
 
-## 6.4 跨機擷取的差異
+## 6.4 Differences in the cross-machine capture
 
-| 項目 | loopback | 跨機 |
+| Item | Loopback | Cross-machine |
 |---|---|---|
-| 位址 | 127.0.0.1 → 127.0.0.1 | 10.77.0.21 → 10.77.0.10 |
+| Addresses | 127.0.0.1 → 127.0.0.1 | 10.77.0.21 → 10.77.0.10 |
 | MSS | 65495 | 1410 |
-| 封包 6 到 7 的間隔 | 0.008 毫秒 | 0.8 毫秒 |
+| Gap between packets 6 and 7 | 0.008 ms | 0.8 ms |
 
-應用層的 12 位元組標頭與內容格式完全相同。
+The 12-byte application header and the payload format are exactly the same.
 
-## 6.5 用 Wireshark 檢視跨機擷取
+## 6.5 Viewing the cross-machine capture in Wireshark
 
-跨機的擷取檔 `docs/capture/stat-ens4.pcap` 用 Wireshark 開啟。Wireshark 不認得自訂的協定，預設只會把訊框顯示成一串 TCP 資料，所以另外寫了一支 Lua 解析器 `docs/capture/pmon.lua`，告訴 Wireshark 埠 9419 上的資料前 12 位元組各是什麼欄位。
+The cross-machine capture `docs/capture/stat-ens4.pcap` is opened in Wireshark. The purpose is to show that the frames the programs put on the wire are correct, and to have a picture that can be used to explain them. Wireshark does not know a custom protocol and by default shows the frame only as TCP data. A Lua dissector, `docs/capture/pmon.lua`, tells Wireshark what each of the first 12 bytes on port 9419 means.
+
+The dissector also checks every frame. It compares the length field with the number of payload bytes that actually follow, and it computes the CRC-32 of the payload with its own code, written separately from `lib/proto.c`, and compares it with the CRC field. The result is shown next to each field as `[correct]` or `[incorrect, should be ...]`.
 
 ```
 wireshark -X lua_script:docs/capture/pmon.lua docs/capture/stat-ens4.pcap
 ```
 
-封包 4，client（10.77.0.21）送給 server（10.77.0.10）的請求：
+Packet 4, the request from the client (10.77.0.21) to the server (10.77.0.10):
 
 @image ../screenshots/wireshark-request.png
 
-封包 6，server 的回應：
+Packet 6, the server's response:
 
 @image ../screenshots/wireshark-reply.png
 
-- 上方的封包列表與 6.1 的表格一致：三向交握、請求、回應、兩邊各一個 FIN，共 10 個封包。第 4、6 個封包的 Protocol 欄顯示 PMON，Info 欄是解析器產生的摘要。
-- 左下方是解析結果。請求的內容長度為 0、CRC 為 0；回應的內容長度為 183、CRC 為 `0x1a0a7d18`，Payload 是 `key=value` 文字。
-- 右下方反白的位元組就是 pmon 訊框，它前面的位元組是 Ethernet、IP、TCP 三層的標頭。回應的訊框從位移 `0x42` 開始，開頭兩個位元組是 `50 4d`。
-- 封包 4 到封包 6 相隔 0.2006 秒，同樣是 server 兩次取樣的間隔。
+- The packet list at the top matches the table in 6.1: the three-way handshake, the request, the response and one FIN from each side, 10 packets in total. Packets 4 and 6 show PMON in the Protocol column, and the Info column is the summary produced by the dissector.
+- The lower left pane is the dissected frame. The request has payload length 0 and CRC 0. The response has payload length 183 and CRC `0x1a0a7d18`, and the payload is `key=value` text.
+- Both frames are marked `[correct]` for the length and for the CRC-32, and the Info column ends with "CRC correct". Wireshark reached the same CRC as the server by a separate computation, so the header the server built is right.
+- As a control, one payload byte of a copy of the capture was changed. The dissector then reported `[incorrect, should be 0xbae3cb5b]` for that frame, so the check does fail when a frame is wrong.
+- The highlighted bytes in the lower right pane are the pmon frame. The bytes before it are the Ethernet, IP and TCP headers. The response frame starts at offset `0x42`, and its first two bytes are `50 4d`.
+- Packets 4 and 6 are 0.2006 seconds apart, again the interval between the server's two samples.
 
-# 7. 稽核與安全性討論
+# 7. Auditing and Security
 
-## 7.1 server 的 log 作為稽核紀錄
+## 7.1 The server log as an audit record
 
-每個連線在 server 的 log 留下這些紀錄，等級是 INFO，任何建置都會輸出：
+Every connection leaves these records in the server log. They are at INFO level and are printed by every build:
 
-| 事件 | 記錄的內容 |
+| Event | What is recorded |
 |---|---|
-| 連線建立 | 時間、child 的 pid、client 的位址與埠 |
-| 開始 `watch` | 間隔秒數 |
-| 連線結束 | 處理了幾個請求；`watch` 送出了幾筆數據；結束的原因（正常斷線、逾時、client 消失） |
-| 拒絕連線 | 原因（連線數已滿、訊框不合法及其細節） |
-| child 異常終止 | pid 與訊號名稱 |
+| Connection opened | Time, pid of the child, address and port of the client |
+| `watch` started | The interval in seconds |
+| Connection closed | Number of requests handled; number of samples `watch` sent; the reason (normal disconnect, timeout, client gone) |
+| Connection refused | The reason (connection limit reached, or an invalid frame and its details) |
+| Child ended abnormally | Its pid and the name of the signal |
 
-從 log 可以回答：誰在什麼時候連過、看了多久、有沒有人送過不合協定的資料。4.1 節輸出的最後一段就是一次完整的紀錄。
+The log answers who connected and when, how long they watched, and whether anyone sent data that was not the protocol. The last part of the output in section 4.1 is one complete record.
 
-## 7.2 已知限制
+## 7.2 Known limitations
 
-- **沒有認證**：任何連得到 9419 埠的人都能查詢。log 能記錄的身分只有來源位址。
-- **內容是明文**：第 6 節的擷取結果顯示，路徑上的任何人都能讀到主機的負載與記憶體資訊。
-- **CRC-32 只能偵測傳輸錯誤**：攻擊者改了內容後可以重算 CRC，它不能防竄改。
-- **log 輸出到標準錯誤**：由啟動 server 的人決定導向哪裡，程式本身沒有輪替或防竄改的機制。
+- **No authentication**: anyone who can reach port 9419 can query. The only identity the log can record is the source address.
+- **The payload is plain text**: the capture in section 6 shows that anyone on the path can read the host's load and memory information.
+- **CRC-32 only detects transmission errors**: an attacker who changes the payload can recompute the CRC, so it does not protect against tampering.
+- **The log goes to standard error**: whoever starts the server decides where it is redirected, and the program has no rotation or tamper protection of its own.
 
-目前的防護是把系統部署在不對外的獨立測試網段。認證與加密是期末專案 Security 項目的範圍。
+The current protection is to deploy the system on an isolated test network with no outside access. Authentication and encryption belong to the Security item of the final project.
 
-## 7.3 關閉參數的風險
+## 7.3 Risk of the demonstration options
 
-第 5 節的四個關閉參數會讓 server 處於不安全的狀態，只用於示範。server 啟動時只要有任何一個被關掉，就會在 log 記錄 `UNSAFE demonstration mode` 與被關掉的項目。
+The four options in section 5 put the server in an unsafe state and are for demonstration only. Whenever any of them is used, the server logs `UNSAFE demonstration mode` and the names of the mechanisms that are off when it starts.
 
-# 8. 建置與執行方式
+# 8. Building and Running
 
 ```
-make            # 一般建置 → build/
-make DEBUG=1    # 除錯建置 → build-debug/
-make deploy     # 把 client 與 libpmon.so 複製到 client 主機
+make            # normal build -> build/
+make DEBUG=1    # debug build -> build-debug/
+make deploy     # copy the client and libpmon.so to the client hosts
 make clean
 
-build/bin/pmond                       # 啟動 server
-build/bin/pmon sysinfo                # 查詢
-build/bin/pmon -s nsp-server watch    # 連到別台主機持續監看
+build/bin/pmond                       # start the server
+build/bin/pmon sysinfo                # query
+build/bin/pmon -s nsp-server watch    # keep watching another host
 
-demo/run-all.sh pause                 # 依序執行全部 demo
-demo/verify.sh                        # 逐條檢查全部要求
+demo/run-all.sh pause                 # run every demo in order
+demo/verify.sh                        # check every requirement
 ```
 
-| 腳本 | 展示的要求 |
+| Script | Requirement shown |
 |---|---|
-| `demo/01-basic.sh` | 系統資訊 |
-| `demo/02-ten-clients.sh [remote]` | fork、10 個 client 同時連線 |
-| `demo/03-capture.sh [介面 remote]` | 封包擷取 |
-| `demo/04-debug-log.sh` | 兩層 debug log |
-| `demo/05-shared-lib.sh` | 共用動態函式庫 |
-| `demo/r1-zombie.sh` 到 `demo/r4-sigpipe.sh` | 四組強健性對照 |
-| `demo/verify.sh` | 逐條檢查全部要求，印出 PASS 或 FAIL |
+| `demo/01-basic.sh` | System information |
+| `demo/02-ten-clients.sh [remote]` | fork, 10 concurrent clients |
+| `demo/03-capture.sh [interface remote]` | Packet capture |
+| `demo/04-debug-log.sh` | Two levels of debug logging |
+| `demo/05-shared-lib.sh` | Shared dynamic library |
+| `demo/r1-zombie.sh` to `demo/r4-sigpipe.sh` | Four robustness comparisons |
+| `demo/verify.sh` | Checks every requirement and prints PASS or FAIL |
 
-# 附錄：完整原始碼
+# Appendix: Complete Source Code
 
 @source Makefile
 @source include/pmon.h

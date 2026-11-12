@@ -1,50 +1,50 @@
-# pmon 系統設計
+# pmon System Design
 
-Network and System Programming 期中作業。`pmon` 是一個遠端效能監控系統：
-server 跑在被監控的主機上，多個 client 同時連線查詢它的系統資訊與即時效能數據。
+Midterm project for Network and System Programming. `pmon` is a remote performance monitor:
+the server runs on the machine being monitored, and several clients connect at the same time to ask for its system information and live performance figures.
 
-設計原則：每一項都對應題目的一個要求，並且能在 demo 時用一兩個指令展示出來。
+Design principle: every item maps to one requirement of the assignment and can be shown in the demo with one or two commands.
 
-| 元件 | 檔名 | 角色 |
+| Component | File | Role |
 |---|---|---|
-| Server | `pmond` | 每個連線 `fork()` 一個 child，從 `/proc` 讀取效能數據 |
-| Client | `pmon` | 命令列工具 |
-| 共用函式庫 | `libpmon.so` | log、可靠讀寫、協定、`key=value` 文字處理 |
+| Server | `pmond` | Calls `fork()` for every connection, reads performance figures from `/proc` |
+| Client | `pmon` | Command-line tool |
+| Shared library | `libpmon.so` | Logging, reliable read and write, the protocol, `key=value` text handling |
 
-## 1. 題目要求與展示方式
+## 1. Requirements and how each is shown
 
-| 題目要求 | 做法 | demo 時怎麼看 | 狀態 |
+| Requirement | How it is met | What to look at in the demo | Status |
 |---|---|---|---|
-| 每個連線 `fork()`，不用 thread | parent 只 accept 與 fork，child 服務一個連線 | client 會印出服務它的 child pid，每個 client 都不同 | 完成 |
-| 至少 10 個 client 同時連線，附執行期證明 | 10 個 client 同時 `watch` | `ps --forest` 看到 1 個 parent 加 10 個 child，`ss -tn` 看到 10 條連線 | 完成（`demo/02-ten-clients.sh`） |
-| 封包擷取與分析 | 自訂 12 位元組標頭的二進位協定 | `tcpdump -X` 的輸出逐欄對照標頭格式 | 完成（`docs/CAPTURE.md`） |
-| 編譯期與執行期兩層 debug log | 編譯期巨集、執行期參數與訊號 | 兩種建置的 `strings` 結果不同；對執行中的 server 送訊號，log 立刻變多 | 完成 |
-| 共用函式包成 `.so` | `libpmon.so` 給兩邊連結 | `ldd` 兩個執行檔；server 與 client VM 上的函式庫 `sha256sum` 相同 | 完成 |
-| client 向 server 要系統資訊 | `pmon sysinfo`、`pmon stat`、`pmon watch` | 直接執行 | 完成 |
-| 強健性，至少三組有與沒有的對照 | 四個機制各有一個關閉參數 | 同一支腳本開與關各跑一次 | 完成（`demo/r1`–`r4`） |
-| Makefile 或 CMake | 手寫 Makefile | `make` | 完成 |
+| `fork()` per connection, no threads | The parent only accepts and forks; a child serves one connection | The client prints the pid of the child serving it, different for every client | Done |
+| At least 10 concurrent clients, with runtime proof | 10 clients run `watch` at once | `ps --forest` shows 1 parent and 10 children; `ss -tn` shows 10 connections | Done (`demo/02-ten-clients.sh`) |
+| Packet capture and analysis | A binary protocol with a custom 12-byte header | The `tcpdump -X` output compared field by field with the header format | Done (`docs/CAPTURE.md`) |
+| Compile-time and runtime debug log control | A compile-time macro; a runtime option and a signal | `strings` differs between the two builds; a signal to the running server makes the log more detailed at once | Done |
+| Shared functions in a `.so` | `libpmon.so`, linked by both sides | `ldd` on both executables; the same `sha256sum` of the library on the server and the client VMs | Done |
+| The client requests system information | `pmon sysinfo`, `pmon stat`, `pmon watch` | Run them | Done |
+| Robustness, at least three comparisons with and without | Four mechanisms, each with an option that turns it off | The same script runs once with it off and once with it on | Done (`demo/r1`–`r4`) |
+| Makefile or CMake | A hand-written Makefile | `make` | Done |
 
-## 2. 功能
+## 2. Functions
 
-| 指令 | 作用 |
+| Command | What it does |
 |---|---|
-| `pmon sysinfo` | 主機的靜態資訊：主機名稱、核心版本、CPU 數量、開機時間、記憶體與磁碟總量 |
-| `pmon stat` | 目前的效能數據，取樣一次 |
-| `pmon watch [-i 秒] [-n 次數]` | 每隔一段時間顯示一列效能數據，直到按 Ctrl+C 或達到次數 |
+| `pmon sysinfo` | Static facts about the host: host name, kernel version, number of CPUs, boot time, total memory and disk |
+| `pmon stat` | Current performance figures, sampled once |
+| `pmon watch [-i seconds] [-n count]` | Prints one line of figures at a fixed interval, until Ctrl+C or the count is reached |
 
-效能數據：
+Performance figures:
 
-| 項目 | 來源 | 算法 |
+| Figure | Source | Calculation |
 |---|---|---|
-| CPU 使用率 | `/proc/stat` | 兩次取樣之間，非閒置時間佔全部時間的比例 |
-| 負載與行程數 | `/proc/loadavg` | 直接讀取 |
-| 記憶體、swap | `/proc/meminfo` | 總量減去可用量 |
-| 磁碟使用率 | `statvfs("/")` | 已用區塊佔可用區塊的比例 |
-| 網路收送速率 | `/proc/net/dev` | 兩次取樣之間的位元組差除以時間，不含 loopback |
+| CPU usage | `/proc/stat` | Share of non-idle time in the total time between two samples |
+| Load and number of tasks | `/proc/loadavg` | Read directly |
+| Memory, swap | `/proc/meminfo` | Total minus available |
+| Disk usage | `statvfs("/")` | Used blocks as a share of usable blocks |
+| Network receive and send rate | `/proc/net/dev` | Byte difference between two samples divided by the time, loopback excluded |
 
-CPU 與網路是變化率，需要兩次取樣。`stat` 會間隔 0.2 秒取兩次；`watch` 用相鄰兩次推送當作區間。
+CPU and network figures are rates, so they need two samples. `stat` takes two samples 0.2 seconds apart; `watch` uses two consecutive pushes as the interval.
 
-`watch` 的輸出：
+Output of `watch`:
 
 ```
 server pid 8020, every 1 s
@@ -53,168 +53,169 @@ time       cpu%  load1   mem%    mem MB   disk%   rx kB/s   tx kB/s  tasks
 14:14:44    0.0   0.17   14.2       554    17.4       0.4       0.5    204
 ```
 
-`watch` 是長時間的連線，所以多個人同時監看同一台主機時，server 上會同時有多個 child。
-這是 10 個 client 同時連線的自然情境。
+`watch` is a long-lived connection, so when several people watch the same host there are several children on the server at once.
+This is the natural situation for 10 concurrent clients.
 
-## 3. 通訊協定
+## 3. Protocol
 
-TCP，預設埠 9419，多位元組欄位為 network byte order。請求與回應使用同一種訊框。
+TCP, port 9419 by default, multi-byte fields in network byte order. Requests and responses use the same frame.
 
-| 位移 | 長度 | 欄位 | 說明 |
+| Offset | Size | Field | Meaning |
 |---|---|---|---|
-| 0 | 2 | magic | 固定 `0x504D`（ASCII `PM`） |
-| 2 | 1 | opcode | 操作碼 |
-| 3 | 1 | status | 回應的結果碼，請求中為 0 |
-| 4 | 4 | length | payload 位元組數，上限 64 KiB |
-| 8 | 4 | crc32 | payload 的 CRC-32 |
+| 0 | 2 | magic | Always `0x504D` (ASCII `PM`) |
+| 2 | 1 | opcode | Operation code |
+| 3 | 1 | status | Result code of a response, 0 in a request |
+| 4 | 4 | length | Number of payload bytes, at most 64 KiB |
+| 8 | 4 | crc32 | CRC-32 of the payload |
 
-payload 是 `key=value` 的文字行，在 `tcpdump -A` 裡可以直接閱讀。
+The payload is lines of `key=value` text and can be read directly in `tcpdump -A`.
 
-| 操作碼 | 名稱 | 請求內容 | 回應內容 |
+| Opcode | Name | Request payload | Response payload |
 |---|---|---|---|
-| 1 | SYSINFO | 無 | 主機的靜態資訊 |
-| 2 | STAT | 無 | 一次效能數據 |
-| 3 | WATCH | `interval`（1–60 秒）、`count`（0 表示不限） | 每隔 interval 推送一個訊框，內容同 STAT |
+| 1 | SYSINFO | None | Static facts about the host |
+| 2 | STAT | None | One set of performance figures |
+| 3 | WATCH | `interval` (1–60 seconds), `count` (0 means no limit) | One frame every interval, same content as STAT |
 
-| 結果碼 | 意義 |
+| Status | Meaning |
 |---|---|
-| 0 OK | 成功 |
-| 1 BAD_REQUEST | 訊框格式錯誤、未知的操作碼、參數超出範圍 |
-| 2 BUSY | 連線數已達上限 |
-| 3 INTERNAL | server 內部錯誤 |
+| 0 OK | Success |
+| 1 BAD_REQUEST | Malformed frame, unknown opcode, or a parameter out of range |
+| 2 BUSY | The connection limit has been reached |
+| 3 INTERNAL | An error inside the server |
 
-`watch` 的流程：
+The flow of `watch`:
 
 ```
 client                              server (child)
-  | WATCH interval=1 count=0 -----> |  取第一次樣本
-  |                                 |  等 1 秒（同時留意 client 是否離開）
-  | <------------- WATCH OK 數據    |  取樣、計算、送出
-  |                                 |  等 1 秒
-  | <------------- WATCH OK 數據    |
-  | （Ctrl+C，連線關閉）             |  發現連線關閉，結束
+  | WATCH interval=1 count=0 -----> |  take the first sample
+  |                                 |  wait 1 s (and notice if the client leaves)
+  | <----------- WATCH OK figures   |  sample, compute, send
+  |                                 |  wait 1 s
+  | <----------- WATCH OK figures   |
+  | (Ctrl+C, connection closed)     |  sees the connection closed, exits
 ```
 
-## 4. Server 行程模型
+## 4. Server process model
 
 ```
-pmond (parent)   socket → bind → listen → 主迴圈
-  ├─ child  ← client A
-  ├─ child  ← client B
-  └─ ...
+pmond (parent)   socket -> bind -> listen -> main loop
+  |- child  <- client A
+  |- child  <- client B
+  `- ...
 ```
 
-- **parent 的主迴圈**：用 `poll()` 等待新連線。有連線就 `accept()` 再 `fork()`，
-  自己關掉連線的 socket 繼續等下一個。child 數量超過上限（預設 64）就回 BUSY 並關閉。
-- **child**：關掉 listen socket，重複「讀一個訊框 → 處理 → 回應」直到 client 斷線，然後結束。
-- **訊號處理函式只設定旗標**，實際的工作在主迴圈做。這樣主迴圈裡可以安心使用 log 等不能在訊號處理函式中呼叫的函式。
-  - `SIGCHLD`：主迴圈用 `waitpid(-1, WNOHANG)` 迴圈回收結束的 child。child 若是被訊號殺掉，會記錄是哪個訊號。
-  - `SIGINT` / `SIGTERM`：主迴圈結束，通知所有 child 結束後再離開。
-  - `SIGUSR1`：切換 debug 輸出。
+- **The parent's main loop**: waits for a new connection with `poll()`. When one arrives it calls `accept()` and then `fork()`,
+  closes its own copy of the connection socket and waits for the next one. If the number of children is over the limit (64 by default) it replies BUSY and closes.
+- **The child**: closes the listening socket and repeats "read a frame → handle it → reply" until the client disconnects, then exits.
+- **Signal handlers only set a flag**; the real work is done in the main loop. The main loop can then safely use logging and other functions that must not be called inside a signal handler.
+  - `SIGCHLD`: the main loop reaps exited children in a `waitpid(-1, WNOHANG)` loop. If a child was killed by a signal, the signal is logged.
+  - `SIGINT` / `SIGTERM`: the main loop ends, tells every child to exit and then leaves.
+  - `SIGUSR1`: toggles debug output.
 
-## 5. 兩層 debug log
+## 5. Two levels of debug logging
 
-| 層 | 怎麼控制 | 效果 |
+| Level | How it is controlled | Effect |
 |---|---|---|
-| 編譯期 | `make` 與 `make DEBUG=1` | 一般建置中 `LOG_DEBUG()` 不產生任何程式碼，除錯訊息的字串不在執行檔裡 |
-| 執行期 | `-v` 參數、環境變數 `PMON_LOG=debug`、對 server 送 `SIGUSR1` | 在除錯建置中切換是否輸出 debug 訊息，不必重啟 |
+| Compile time | `make` versus `make DEBUG=1` | In a normal build `LOG_DEBUG()` produces no code, and the debug message strings are not in the executable |
+| Runtime | The `-v` option, the environment variable `PMON_LOG=debug`, or `SIGUSR1` sent to the server | In a debug build, switches debug output on and off without restarting |
 
-log 的每一行有時間、等級、程式名稱與 pid、原始檔與行號。pid 讓多個 child 的輸出可以分辨。
-每行用單一 `write()` 輸出，多個行程同時寫不會交錯。
+Every log line carries the time, the level, the program name and pid, and the source file and line number. The pid tells apart the output of several children.
+Each line is written with a single `write()`, so lines from different processes do not interleave.
 
 ```
 2026-11-06 14:14:09.759 [DEBUG] pmond[7845] lib/proto.c:72: send frame op=STAT status=OK len=182
 ```
 
-展示方式：
+How it is shown:
 
-- 編譯期：`strings` 兩種建置的執行檔找同一句除錯訊息，一般建置找不到，除錯建置找得到。
-- 執行期：server 執行中 `pkill -USR1 pmond`，下一個請求開始出現 debug 訊息；再送一次關閉。
+- Compile time: `strings` on the executables of both builds, looking for the same debug message. It is absent from the normal build and present in the debug build.
+- Runtime: `pkill -USR1 pmond` while the server is running; debug messages appear from the next request on. Sending it again turns them off.
 
-## 6. 強健性
+## 6. Robustness
 
-四個機制各有一個關閉參數，用來展示有與沒有的差別。
+Each of the four mechanisms has an option that turns it off, to show the difference with and without it.
 
-| 編號 | 異常狀況 | 機制 | 關閉參數 | 怎麼觸發 | 關閉時看到什麼 | 開啟時看到什麼 |
+| No. | Abnormal situation | Mechanism | Option | How to trigger it | What is seen with it off | What is seen with it on |
 |---|---|---|---|---|---|---|
-| R1 | child 結束 | `SIGCHLD` + `waitpid` | `--no-reap` | 連續執行幾次 `pmon stat` | `ps` 裡 `<defunct>` 越來越多 | 沒有殭屍行程 |
-| R2 | 不是本協定的資料 | 檢查 magic、length 上限、CRC | `--no-validate` | `curl http://server:9419/` | child 把 HTTP 文字當成標頭，配置大量記憶體並等待一個巨大的 payload | 立刻回 BAD_REQUEST 並斷線 |
-| R3 | client 連上後不送資料 | 讀取逾時 10 秒 | `--no-timeout` | `nc server 9419` 後放著 | child 一直存在 | 逾時後 child 記錄並結束 |
-| R4 | `watch` 途中 client 被強制結束 | 等待時留意連線是否關閉；忽略 `SIGPIPE`，由 `send()` 回傳 `EPIPE` | `--no-sigpipe` | `watch` 途中 `kill -9` client | parent 記錄 child 被 `SIGPIPE` 殺掉 | child 記錄 client 已離開並正常結束 |
+| R1 | A child exits | `SIGCHLD` + `waitpid` | `--no-reap` | Run `pmon stat` a few times | More and more `<defunct>` entries in `ps` | No zombie processes |
+| R2 | Data that is not this protocol | Check the magic, the length limit and the CRC | `--no-validate` | `curl http://server:9419/` | The child takes the HTTP text as a header, allocates a large amount of memory and waits for a huge payload | BAD_REQUEST at once, then disconnect |
+| R3 | A client connects and sends nothing | 10-second read timeout | `--no-timeout` | `nc server 9419` and leave it | The child stays forever | The child logs the timeout and exits |
+| R4 | The client is killed in the middle of `watch` | Notice a closed connection while waiting; ignore `SIGPIPE` and let `send()` return `EPIPE` | `--no-sigpipe` | `kill -9` the client during `watch` | The parent logs that the child was killed by `SIGPIPE` | The child logs that the client left and exits normally |
 
-不設關閉參數但同樣有做的：
+Also implemented, without an option to turn them off:
 
-- 讀寫都用迴圈處理短讀、短寫與 `EINTR`。
-- 連線數上限，超過時回 BUSY；`fork()` 失敗時同樣回 BUSY，server 不會結束。
-- 拒絕非法資料時先送出錯誤回覆、讀掉對方已送來的資料再關閉。直接關閉會讓核心送出重置，對方收不到回覆。
-- `watch` 的參數範圍檢查。
-- `SO_REUSEADDR`，server 重啟不必等待。
-- client 的連線逾時與回應逾時。
+- Reads and writes loop to handle short reads, short writes and `EINTR`.
+- A connection limit, with a BUSY reply beyond it. A failed `fork()` also gets a BUSY reply and does not end the server.
+- When invalid data is rejected, the server sends the error reply and drains what the peer has already sent before closing. Closing directly makes the kernel send a reset, and the peer never sees the reply.
+- Range checks on the `watch` parameters.
+- `SO_REUSEADDR`, so the server can be restarted without waiting.
+- Connect and response timeouts in the client.
 
-## 7. 共用函式庫 `libpmon.so`
+## 7. The shared library `libpmon.so`
 
-| 模組 | 內容 | server 怎麼用 | client 怎麼用 |
+| Module | Content | Used by the server for | Used by the client for |
 |---|---|---|---|
-| `log` | 第 5 節的兩層控制與輸出格式 | 記錄連線與錯誤 | 除錯輸出 |
-| `io` | 帶逾時的完整讀寫 | 讀請求、送回應 | 送請求、讀回應 |
-| `proto` | 訊框的收送與檢查、CRC-32 | 同上 | 同上 |
-| `kv` | 從 `key=value` 文字取值 | 讀 `watch` 的參數 | 從回應取出各項數據排成表格 |
+| `log` | The two-level control of section 5 and the output format | Recording connections and errors | Debug output |
+| `io` | Complete read and write with a timeout | Reading requests, sending responses | Sending requests, reading responses |
+| `proto` | Sending, receiving and checking frames; CRC-32 | Same as above | Same as above |
+| `kv` | Getting a value out of `key=value` text | Reading the `watch` parameters | Picking figures out of a response to print a table |
 
-以 `-fPIC -shared` 建置。執行檔連結時加上 rpath `$ORIGIN/../lib`，
-會到自己所在位置旁邊的 `lib/` 找函式庫，不必設定 `LD_LIBRARY_PATH`。
+Built with `-fPIC -shared`. The executables are linked with the rpath `$ORIGIN/../lib`,
+so they look for the library in the `lib/` directory next to their own location, and `LD_LIBRARY_PATH` does not have to be set.
 
-## 8. 建置、部署與目錄
+## 8. Build, deployment and layout
 
-| 指令 | 內容 |
+| Command | What it does |
 |---|---|
-| `make` | 一般建置，輸出到 `build/` |
-| `make DEBUG=1` | 除錯建置：保留 debug log，加 `-g`，輸出到 `build-debug/` |
-| `make deploy` | 把 client 執行檔與 `libpmon.so` 複製到兩台 client VM 的 `~/pmon/` |
-| `make clean` | 清除產物 |
+| `make` | Normal build, output in `build/` |
+| `make DEBUG=1` | Debug build: keeps the debug log, adds `-g`, output in `build-debug/` |
+| `make deploy` | Copies the client executable and `libpmon.so` to `~/pmon/` on the two client VMs |
+| `make clean` | Removes the build output |
 
-開發流程：
+Development workflow:
 
-- 原始碼只放在 `nsp-server`，在這台編譯。兩台 client VM 沒有編譯器。
-- `make deploy` 把 `pmon` 和 server 正在使用的同一個 `libpmon.so` 送到 client VM。
-- 測試時 server 跑在 `nsp-server`，client 從兩台 client VM 透過測試網段連線：
-  `~/pmon/bin/pmon -s nsp-server watch`。
-- 版本控制：git，一個功能或一個修正一個 commit，訊息說明為什麼。`build/` 與 `build-debug/` 不進版控。
+- The source lives only on `nsp-server` and is compiled there. The two client VMs have no compiler.
+- `make deploy` sends `pmon` and the very `libpmon.so` the server is using to the client VMs.
+- For testing, the server runs on `nsp-server` and the clients connect from the two client VMs over the test network:
+  `~/pmon/bin/pmon -s nsp-server watch`.
+- Version control: git, one commit per feature or fix, with a message that says why. `build/` and `build-debug/` are not tracked.
 
 ```
 nsp-midterm/
   Makefile
-  include/pmon.h    函式庫的標頭
-  lib/              libpmon.so：log.c io.c proto.c kv.c
-  server/           pmond：pmond.c session.c sysinfo.c metrics.c
-  client/           pmon：pmon.c
-  demo/             每個展示項目一支腳本
-  infra/            OpenStack 環境
-  docs/             設計文件、報告
+  include/pmon.h    header of the library
+  lib/              libpmon.so: log.c io.c proto.c kv.c
+  server/           pmond: pmond.c session.c sysinfo.c metrics.c
+  client/           pmon: pmon.c
+  demo/             one script per demo item
+  infra/            OpenStack environment
+  docs/             design documents, report
 ```
 
-## 9. Demo 腳本
+## 9. Demo scripts
 
-每支腳本只做一件事，輸出就是要放進報告的截圖。
+Each script does one thing, and its output is what goes into the report as a screenshot.
 
-| 腳本 | 展示 |
+| Script | Shows |
 |---|---|
-| `demo/01-basic.sh` | sysinfo、stat、watch 的正常流程 |
-| `demo/02-ten-clients.sh` | 10 個 client 同時 `watch`，印出 `ps --forest` 與 `ss -tn` |
-| `demo/03-capture.sh` | 執行一次 stat 並用 `tcpdump -X` 擷取 |
-| `demo/04-debug-log.sh` | 編譯期與執行期兩層 log 控制 |
-| `demo/05-shared-lib.sh` | `ldd` 與 `sha256sum` |
-| `demo/r1-zombie.sh` 到 `demo/r4-sigpipe.sh` | 四組強健性，各自開與關跑一次 |
+| `demo/01-basic.sh` | The normal flow of sysinfo, stat and watch |
+| `demo/02-ten-clients.sh` | 10 clients running `watch` at once, with `ps --forest` and `ss -tn` |
+| `demo/03-capture.sh` | One stat captured with `tcpdump -X` |
+| `demo/04-debug-log.sh` | Compile-time and runtime log control |
+| `demo/05-shared-lib.sh` | `ldd` and `sha256sum` |
+| `demo/r1-zombie.sh` to `demo/r4-sigpipe.sh` | Four robustness mechanisms, each run with it off and on |
+| `demo/verify.sh` | Checks every requirement and prints PASS or FAIL |
 
-測試環境：
+Test environments:
 
-- 單機：`nsp-server` 上用 loopback，`tcpdump -i lo`。
-- 跨機：server 在 `nsp-server`，兩台 client VM 各跑 5 個 client，在測試網段上擷取後用 Wireshark 開啟。
+- Single machine: loopback on `nsp-server`, `tcpdump -i lo`.
+- Two machines: the server on `nsp-server`, 5 clients on each of the two client VMs, captured on the test network and opened in Wireshark.
 
-## 10. 進度
+## 10. Progress
 
-| 階段 | 內容 | 狀態 |
+| Stage | Content | Status |
 |---|---|---|
-| 1 | Makefile、`libpmon.so`、log、協定、fork server、`sysinfo` | 完成 |
-| 2 | 效能數據 `stat`、即時監看 `watch` | 完成 |
-| 3 | 四個關閉參數、demo 腳本、封包擷取與分析 | 完成 |
-| 4 | 報告與影片 | 待做 |
+| 1 | Makefile, `libpmon.so`, logging, protocol, fork server, `sysinfo` | Done |
+| 2 | Performance figures `stat`, live `watch` | Done |
+| 3 | The four options, demo scripts, packet capture and analysis | Done |
+| 4 | Report and video | Report done, video to do |

@@ -9,7 +9,7 @@ const {
 } = require("docx");
 
 const [, , mdPath, srcRoot, outPath] = process.argv;
-const BODY = "Microsoft JhengHei";
+const BODY = "Calibri";
 const MONO = "Consolas";
 const PAGE_W = 11906, MARGIN = 1000, CONTENT_W = PAGE_W - 2 * MARGIN;
 
@@ -53,7 +53,7 @@ function table(rows) {
   // column widths from content length (CJK counts double), clamped
   const len = (s) => [...s.replace(/[`*]/g, "")].reduce((a, c) => a + (c.charCodeAt(0) > 0x2e7f ? 2 : 1), 0);
   let w = Array(ncol).fill(0);
-  rows.forEach((r) => r.forEach((c, i) => { w[i] = Math.max(w[i], Math.min(len(c), 46)); }));
+  rows.forEach((r) => r.forEach((c, i) => { w[i] = Math.max(w[i], Math.min(len(c) * (c.startsWith("`") ? 1.5 : 1), 46)); }));
   w = w.map((x) => Math.max(x, 5));
   const total = w.reduce((a, b) => a + b, 0);
   let widths = w.map((x) => Math.floor((x / total) * CONTENT_W));
@@ -73,6 +73,7 @@ function table(rows) {
         margins: { top: 60, bottom: 60, left: 100, right: 100 },
         children: [new Paragraph({
           spacing: { before: 0, after: 0, line: 300 },
+          keepNext: rows.length <= 12 && ri < rows.length - 1,   // keep a short table on one page
           children: inline(c, { size: 19, bold: ri === 0 }),
         })],
       })),

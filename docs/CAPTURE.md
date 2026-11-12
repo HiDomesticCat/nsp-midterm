@@ -1,125 +1,126 @@
-# 封包擷取與分析
+# Packet Capture and Analysis
 
-一次 `pmon stat` 的完整連線，用 `tcpdump` 擷取。
+One complete `pmon stat` connection, captured with `tcpdump`.
 
-| 檔案 | 環境 | 產生方式 |
+| File | Environment | Produced by |
 |---|---|---|
-| `capture/stat-lo.pcap`、`.txt` | 單機 loopback | `demo/03-capture.sh` |
-| `capture/stat-ens4.pcap`、`.txt` | 跨機：`nsp-client-1`（10.77.0.21）→ `nsp-server`（10.77.0.10） | `demo/03-capture.sh ens4 remote` |
+| `capture/stat-lo.pcap`, `.txt` | Single machine, loopback | `demo/03-capture.sh` |
+| `capture/stat-ens4.pcap`, `.txt` | Two machines: `nsp-client-1` (10.77.0.21) → `nsp-server` (10.77.0.10) | `demo/03-capture.sh ens4 remote` |
 
-`.pcap` 可以直接用 Wireshark 開啟。以下以 loopback 的擷取為例，跨機的結果結構完全相同。
+The `.pcap` files open directly in Wireshark. The loopback capture is used as the example below; the cross-machine capture has exactly the same structure.
 
-## 1. 整條連線：10 個封包
+## 1. The whole connection: 10 packets
 
-client 的埠是 58396，server 是 9419。
+The client's port is 58396 and the server's is 9419.
 
-| # | 時間 | 方向 | 旗標 | 資料長度 | 意義 |
+| # | Time | Direction | Flags | Data length | Meaning |
 |---|---|---|---|---|---|
-| 1 | .683795 | client → server | `S` | 0 | 三向交握：SYN |
-| 2 | .683806 | server → client | `S.` | 0 | 三向交握：SYN + ACK |
-| 3 | .683816 | client → server | `.` | 0 | 三向交握：ACK，連線建立 |
-| 4 | .683841 | client → server | `P.` | 12 | **請求訊框**（只有標頭） |
-| 5 | .683845 | server → client | `.` | 0 | 確認收到請求 |
-| 6 | .884327 | server → client | `P.` | 195 | **回應訊框**（12 位元組標頭 + 183 位元組內容） |
-| 7 | .884335 | client → server | `.` | 0 | 確認收到回應 |
-| 8 | .884371 | client → server | `F.` | 0 | client 關閉連線：FIN |
-| 9 | .884475 | server → client | `F.` | 0 | server 也關閉：FIN |
-| 10 | .884485 | client → server | `.` | 0 | 確認，連線結束 |
+| 1 | .683795 | client → server | `S` | 0 | Three-way handshake: SYN |
+| 2 | .683806 | server → client | `S.` | 0 | Three-way handshake: SYN + ACK |
+| 3 | .683816 | client → server | `.` | 0 | Three-way handshake: ACK, connection established |
+| 4 | .683841 | client → server | `P.` | 12 | **Request frame** (header only) |
+| 5 | .683845 | server → client | `.` | 0 | Acknowledges the request |
+| 6 | .884327 | server → client | `P.` | 195 | **Response frame** (12-byte header + 183-byte payload) |
+| 7 | .884335 | client → server | `.` | 0 | Acknowledges the response |
+| 8 | .884371 | client → server | `F.` | 0 | The client closes: FIN |
+| 9 | .884475 | server → client | `F.` | 0 | The server closes too: FIN |
+| 10 | .884485 | client → server | `.` | 0 | Acknowledgement, connection finished |
 
-可以觀察到的事：
+What can be observed:
 
-- **封包 4 到 6 相隔 0.2 秒**。這是 server 計算 CPU 使用率與網路速率時，兩次取樣之間的間隔（`STAT_WINDOW_MS`），不是網路延遲。
-- **請求與回應各只佔一個 TCP 封包**。`proto_send()` 把標頭和內容放進同一個緩衝區一次送出，所以不會被拆成兩段。
-- **由 client 先送 FIN**。client 拿到回應後關閉 socket；server 的 child 讀到 EOF，記錄「disconnected」後結束，於是送出自己的 FIN。
-- **序號可以對上資料長度**。請求佔 `seq 1:13`（12 位元組），回應佔 `seq 1:196`（195 位元組），FIN 各佔一個序號。
+- **Packets 4 and 6 are 0.2 seconds apart.** That is the interval between the two samples the server takes to compute CPU usage and network rates (`STAT_WINDOW_MS`), not network delay.
+- **The request and the response each take a single TCP packet.** `proto_send()` puts the header and the payload into one buffer and sends them together, so they are not split in two.
+- **The client sends FIN first.** The client closes its socket after it has the response. The server child reads EOF, logs "disconnected" and exits, which sends its own FIN.
+- **The sequence numbers match the data lengths.** The request is `seq 1:13` (12 bytes), the response is `seq 1:196` (195 bytes), and each FIN takes one sequence number.
 
-## 2. 請求訊框：12 位元組
+## 2. The request frame: 12 bytes
 
-封包 4 的 TCP 資料（IP 標頭 20 位元組、TCP 標頭 32 位元組之後）：
+The TCP data of packet 4 (after the 20-byte IP header and the 32-byte TCP header):
 
 ```
 504d 0200 0000 0000 0000 0000
 ```
 
-| 位元組 | 值 | 欄位 | 解讀 |
+| Bytes | Value | Field | Reading |
 |---|---|---|---|
-| 0–1 | `50 4d` | magic | ASCII `PM`，表示這是 pmon 協定 |
+| 0–1 | `50 4d` | magic | ASCII `PM`, marks the pmon protocol |
 | 2 | `02` | opcode | 2 = STAT |
-| 3 | `00` | status | 請求固定為 0 |
-| 4–7 | `00 00 00 00` | length | 內容長度 0，STAT 不帶參數 |
-| 8–11 | `00 00 00 00` | crc32 | 空內容的 CRC-32 是 0 |
+| 3 | `00` | status | Always 0 in a request |
+| 4–7 | `00 00 00 00` | length | Payload length 0; STAT has no parameters |
+| 8–11 | `00 00 00 00` | crc32 | The CRC-32 of an empty payload is 0 |
 
-## 3. 回應訊框：12 + 183 位元組
+## 3. The response frame: 12 + 183 bytes
 
-封包 6 的 TCP 資料開頭：
+The start of the TCP data of packet 6:
 
 ```
 504d 0200 0000 00b7 1165 f848 7469 6d65 3d31 303a ...
                               t i  m e  = 1  0 :
 ```
 
-| 位元組 | 值 | 欄位 | 解讀 |
+| Bytes | Value | Field | Reading |
 |---|---|---|---|
 | 0–1 | `50 4d` | magic | `PM` |
-| 2 | `02` | opcode | 2 = STAT，與請求相同 |
+| 2 | `02` | opcode | 2 = STAT, same as the request |
 | 3 | `00` | status | 0 = OK |
-| 4–7 | `00 00 00 b7` | length | 0xb7 = 183 位元組 |
-| 8–11 | `11 65 f8 48` | crc32 | 內容的 CRC-32 |
+| 4–7 | `00 00 00 b7` | length | 0xb7 = 183 bytes |
+| 8–11 | `11 65 f8 48` | crc32 | CRC-32 of the payload |
 | 12– | `74 69 6d 65 3d ...` | payload | `time=10:26:04\ncpu_pct=2.5\n...` |
 
-多位元組欄位是 network byte order（高位在前）：長度 183 寫成 `00 00 00 b7`，不是 x86 記憶體裡的 `b7 00 00 00`。
-程式用 `put32()`、`get32()` 逐位元組組合，不依賴機器的位元組順序。
+Multi-byte fields are in network byte order (most significant byte first): the length 183 is written as `00 00 00 b7`, not as `b7 00 00 00` the way x86 keeps it in memory.
+The program builds them byte by byte with `put32()` and `get32()` and does not depend on the machine's byte order.
 
-TCP 資料長度 195 = 標頭 12 + 內容 183，與 length 欄位一致。
+The TCP data length of 195 = 12-byte header + 183-byte payload, in agreement with the length field.
 
-內容是 `key=value` 文字行，在擷取結果的右側可以直接閱讀：
+The payload is lines of `key=value` text and can be read directly on the right side of the capture:
 
 ```
 time=10:26:04.cpu_pct=2.5.load1=0.03.tasks=187.mem_total_mb=3915.mem_used_mb=549...
 ```
 
-（`.` 是換行字元 0x0a，`tcpdump` 把不可見字元顯示成句點。）
+(`.` is the newline character 0x0a; `tcpdump` shows non-printable characters as a period.)
 
-## 4. 跨機擷取的差異
+## 4. Differences in the cross-machine capture
 
-`capture/stat-ens4.txt` 與 loopback 的差別只在網路層：
+`capture/stat-ens4.txt` differs from the loopback capture only at the network layer:
 
-| 項目 | loopback | 跨機 |
+| Item | Loopback | Cross-machine |
 |---|---|---|
-| 位址 | 127.0.0.1 → 127.0.0.1 | 10.77.0.21 → 10.77.0.10 |
-| MSS | 65495 | 1410（實體網路的 MTU 扣掉 VXLAN 封裝與標頭） |
-| 封包 6 到 7 的間隔 | 0.008 ms | 0.8 ms（真的經過網路） |
+| Addresses | 127.0.0.1 → 127.0.0.1 | 10.77.0.21 → 10.77.0.10 |
+| MSS | 65495 | 1410 (the physical network's MTU minus the VXLAN encapsulation and headers) |
+| Gap between packets 6 and 7 | 0.008 ms | 0.8 ms (it really crosses a network) |
 
-應用層的 12 位元組標頭與內容格式完全相同。
+The 12-byte application header and the payload format are exactly the same.
 
-## 5. 從封包看到的安全問題
+## 5. Security problems visible in the capture
 
-- **內容是明文**。任何能在路徑上擷取封包的人，都能讀到主機的 CPU、記憶體、行程數等資訊。
-- **沒有認證**。任何連得到 9419 埠的人都能查詢。
-- **CRC-32 只能偵測傳輸錯誤，不能防竄改**。攻擊者改了內容後可以重算 CRC。
+- **The payload is plain text.** Anyone who can capture packets on the path can read the host's CPU, memory and task figures.
+- **There is no authentication.** Anyone who can reach port 9419 can query.
+- **CRC-32 only detects transmission errors, not tampering.** An attacker who changes the payload can recompute the CRC.
 
-這三點是期中的已知限制。期末專案的 Security 項目（加密、認證）就是針對它們。
-目前的防護是部署在不對外的獨立測試網段上。
+These three points are known limitations of the midterm. The Security item of the final project (encryption, authentication) addresses them.
+The current protection is to deploy on an isolated test network with no outside access.
 
-## 用 Wireshark 檢視跨機擷取
+## Viewing the cross-machine capture in Wireshark
 
-Wireshark 不認得自訂的協定，預設只會把訊框顯示成一串 TCP 資料。`docs/capture/pmon.lua` 是一支 Lua 解析器，告訴 Wireshark 埠 9419 上的資料前 12 位元組各是什麼欄位。
+Wireshark does not know a custom protocol and by default shows the frame only as TCP data. `docs/capture/pmon.lua` is a Lua dissector that tells Wireshark what each of the first 12 bytes on port 9419 means.
 
 ```
 wireshark -X lua_script:docs/capture/pmon.lua docs/capture/stat-ens4.pcap
 tshark    -X lua_script:docs/capture/pmon.lua -r docs/capture/stat-ens4.pcap -Y pmon -O pmon
 ```
 
-封包 4，client（10.77.0.21）送給 server（10.77.0.10）的請求：
+Packet 4, the request from the client (10.77.0.21) to the server (10.77.0.10):
 
-![Wireshark：請求訊框](screenshots/wireshark-request.png)
+![Wireshark: request frame](screenshots/wireshark-request.png)
 
-封包 6，server 的回應：
+Packet 6, the server's response:
 
-![Wireshark：回應訊框](screenshots/wireshark-reply.png)
+![Wireshark: response frame](screenshots/wireshark-reply.png)
 
-- 第 4、6 個封包的 Protocol 欄顯示 PMON，Info 欄是解析器產生的摘要。
-- 左下方是解析結果：請求的內容長度為 0、CRC 為 0；回應的內容長度為 183、CRC 為 `0x1a0a7d18`。
-- 右下方反白的位元組就是 pmon 訊框，它前面的位元組是 Ethernet、IP、TCP 三層的標頭。
+- Packets 4 and 6 show PMON in the Protocol column, and the Info column is the summary produced by the dissector.
+- The lower left pane is the dissected frame: the request has payload length 0 and CRC 0; the response has payload length 183 and CRC `0x1a0a7d18`.
+- The dissector checks every frame: the length field against the payload bytes that follow, and the CRC field against a CRC-32 it computes with its own code. Both frames are marked `[correct]`. With one payload byte changed in a copy of the capture, it reports `[incorrect, should be 0xbae3cb5b]`.
+- The highlighted bytes in the lower right pane are the pmon frame. The bytes before it are the Ethernet, IP and TCP headers.
 
-畫面由 `docs/report/wireshark-shot.sh` 在虛擬顯示器上開啟 Wireshark 後擷取。
+The pictures are taken by `docs/report/wireshark-shot.sh`, which opens Wireshark on a virtual display.

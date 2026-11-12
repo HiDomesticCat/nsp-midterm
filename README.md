@@ -1,61 +1,62 @@
 # pmon
 
-遠端效能監控系統。Network and System Programming 期中作業。
+A remote performance monitor. Midterm project for Network and System Programming.
 
-server（`pmond`）跑在被監控的主機上，每個連線 `fork()` 一個 child；
-client（`pmon`）連線查詢主機的系統資訊與即時效能數據。兩者共用 `libpmon.so`。
+The server (`pmond`) runs on the machine being monitored and calls `fork()` for every connection.
+The client (`pmon`) connects and asks for the machine's system information and live performance figures.
+Both link the shared library `libpmon.so`.
 
-## 建置
+## Build
 
 ```
-make            # 一般建置 → build/
-make DEBUG=1    # 除錯建置 → build-debug/（保留 debug log）
-make deploy     # 把 client 與 libpmon.so 複製到 client VM
+make            # normal build -> build/
+make DEBUG=1    # debug build -> build-debug/ (keeps the debug log)
+make deploy     # copy the client and libpmon.so to the client VMs
 make clean
 ```
 
-需要 gcc 與 make。demo 腳本另外用到 `tcpdump`、`nc`、`curl`。
+gcc and make are required. The demo scripts also use `tcpdump`, `nc` and `curl`.
 
-## 使用
+## Usage
 
 ```
-build/bin/pmond                          # 啟動 server，預設埠 9419
-build/bin/pmon sysinfo                   # 主機的靜態資訊
-build/bin/pmon stat                      # 目前的 CPU、記憶體、磁碟、網路
-build/bin/pmon watch -i 1                # 每秒一列，Ctrl+C 結束
-build/bin/pmon -s nsp-server watch       # 連到別台主機
+build/bin/pmond                          # start the server, port 9419 by default
+build/bin/pmon sysinfo                   # static facts about the host
+build/bin/pmon stat                      # current CPU, memory, disk, network
+build/bin/pmon watch -i 1                # one line per second, Ctrl+C to stop
+build/bin/pmon -s nsp-server watch       # connect to another host
 ```
 
-`pmond -h`、`pmon -h` 列出所有參數。
+`pmond -h` and `pmon -h` list every option.
 
 ## Demo
 
-每支腳本展示一項題目要求，會自己啟動與關閉 server。
+Each script shows one requirement of the assignment and starts and stops the server by itself.
 
-| 腳本 | 題目要求 |
+| Script | Requirement |
 |---|---|
-| `demo/01-basic.sh` | client 向 server 要系統資訊 |
-| `demo/02-ten-clients.sh [remote]` | `fork()` 處理每個連線；10 個 client 同時連線的執行期證明 |
-| `demo/03-capture.sh [介面 remote]` | 封包擷取（分析見 `docs/CAPTURE.md`） |
-| `demo/04-debug-log.sh` | 編譯期與執行期兩層 debug log 控制 |
-| `demo/05-shared-lib.sh` | server 與 client 共用動態函式庫 |
-| `demo/r1-zombie.sh` | 強健性：回收結束的 child |
-| `demo/r2-validate.sh` | 強健性：拒絕不合協定的資料 |
-| `demo/r3-timeout.sh` | 強健性：不送資料的 client 會逾時 |
-| `demo/r4-sigpipe.sh` | 強健性：client 中途消失時 server 不會被殺掉 |
-| `demo/run-all.sh [pause]` | 依序執行全部 |
-| `demo/verify.sh` | 逐條檢查全部要求，印出 PASS 或 FAIL（另需 `tshark`） |
+| `demo/01-basic.sh` | The client requests system information from the server |
+| `demo/02-ten-clients.sh [remote]` | `fork()` per connection; runtime proof of 10 concurrent clients |
+| `demo/03-capture.sh [interface remote]` | Packet capture (analysis in `docs/CAPTURE.md`) |
+| `demo/04-debug-log.sh` | Compile-time and runtime debug log control |
+| `demo/05-shared-lib.sh` | Dynamic library shared by server and client |
+| `demo/r1-zombie.sh` | Robustness: reaping exited children |
+| `demo/r2-validate.sh` | Robustness: rejecting data that is not the protocol |
+| `demo/r3-timeout.sh` | Robustness: a client that sends nothing times out |
+| `demo/r4-sigpipe.sh` | Robustness: the server is not killed when a client disappears |
+| `demo/run-all.sh [pause]` | Runs all of them in order |
+| `demo/verify.sh` | Checks every requirement and prints PASS or FAIL (also needs `tshark`) |
 
-四支 `r*` 腳本各跑兩次：先關掉機制，再開啟機制，比較兩者的行為。
+The four `r*` scripts each run twice, first with the mechanism off and then with it on, to compare the behaviour.
 
-## 目錄
+## Layout
 
 ```
-include/pmon.h    函式庫的標頭
-lib/              libpmon.so：log.c io.c proto.c kv.c
-server/           pmond：pmond.c session.c sysinfo.c metrics.c
-client/           pmon：pmon.c
-demo/             展示腳本
-docs/             DESIGN.md（系統設計）、CAPTURE.md（封包分析）、capture/（擷取檔與 Wireshark 解析器 pmon.lua）
-infra/            建立測試用 VM 的腳本
+include/pmon.h    header of the library
+lib/              libpmon.so: log.c io.c proto.c kv.c
+server/           pmond: pmond.c session.c sysinfo.c metrics.c
+client/           pmon: pmon.c
+demo/             demo scripts
+docs/             DESIGN.md (system design), CAPTURE.md (packet analysis), capture/ (captures and the Wireshark dissector pmon.lua)
+infra/            scripts that create the test VMs
 ```
