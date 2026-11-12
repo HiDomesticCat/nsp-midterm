@@ -1,0 +1,80 @@
+== 8. Makefile: clean build of both variants
+  PASS  make exit status (= 0)
+  PASS  make DEBUG=1 exit status (= 0)
+  PASS  compiler warnings (= 0)
+      flags: -Wall -Werror -Wextra -Wl 
+      built: build-debug/bin: pmon pmond  build-debug/lib: libpmon.so  build/bin: pmon pmond  build/lib: libpmon.so 
+== 1. fork per connection, no threads
+  PASS  fork() calls in server/pmond.c (= 2)
+  PASS  files mentioning pthread (= 0)
+  PASS  pthread_create imported by pmond (= 0)
+== 2. ten clients at once (same machine)
+  PASS  child processes of pmond (= 10)
+  PASS  established connections on port (= 10)
+  PASS  distinct child pids (= 10)
+  PASS  max threads in any pmond process (= 1)
+  PASS  children whose parent is pmond (= 10)
+  PASS  clients that got an answer (= 10)
+  PASS  children left after clients finish (= 0)
+  PASS  zombies left (= 0)
+== 2b. ten clients at once (two other machines, 5 + 5)
+  PASS  child processes of pmond (= 10)
+      peers:      5 10.77.0.21
+      peers:      5 10.77.0.22
+  PASS  children left afterwards (= 0)
+== 6. client asks the server for system information
+  PASS  pmon sysinfo exit status (= 0)
+  PASS  lines of system information (= 10)
+      hostname=nsp-server
+      kernel=Linux 6.8.0-142-generic x86_64
+      cpus=2
+      uptime=6d 6h 45m
+      mem_total_mb=3915
+  PASS  pmon stat exit status (= 0)
+  PASS  pmon watch -n 2 exit status (= 0)
+  PASS  watch rows shown (= 2)
+== 4. debug log: compile time
+  PASS  debug messages in the source (= 7)
+  PASS  of those, present in the normal build (= 0)
+  PASS  of those, present in the debug build (= 7)
+== 4. debug log: run time (debug build)
+  PASS  DEBUG lines, started without -v (= 0)
+  PASS  DEBUG lines after SIGUSR1 (on) (= 5)
+  PASS  DEBUG lines after SIGUSR1 again (off, unchanged) (= 5)
+  PASS  DEBUG lines, started with -v (= 5)
+  PASS  DEBUG lines, started with PMON_LOG=debug (= 5)
+  PASS  DEBUG lines, normal build with -v (= 0)
+== 5. shared library used by both sides
+  PASS  libpmon.so is a shared object (= 1)
+  PASS  pmond needs libpmon.so (= 1)
+  PASS  pmon needs libpmon.so (= 1)
+  PASS  library functions imported by pmond (= 8)
+      io_set_sigpipe_guard kv_get_num log_init log_set_debug log_toggle_debug log_write proto_recv proto_send
+  PASS  copies of proto_send inside pmond itself (= 0)
+  PASS  library functions imported by pmon (= 7)
+      kv_get kv_get_num log_init log_set_debug proto_recv proto_send proto_status_name
+  PASS  copies of proto_send inside pmon itself (= 0)
+  PASS  client without the library next to it: exit status (= 127)
+      /tmp/audit-alone/pmon: error while loading shared libraries: libpmon.so: cannot open shared object file: No such file or directory
+  PASS  libpmon.so on nsp-client-1 identical to the one built here (= 4a3b23344b6e3e8a)
+  PASS  compilers on nsp-client-1 (= 0)
+  PASS  libpmon.so on nsp-client-2 identical to the one built here (= 4a3b23344b6e3e8a)
+  PASS  compilers on nsp-client-2 (= 0)
+== 3. packet captures
+  PASS  docs/capture/stat-lo.pcap: packets (= 10)
+      127.0.0.1	127.0.0.1	12	504d02000000000000000000
+      127.0.0.1	127.0.0.1	195	504d0200000000b71165f84874696d653d31303a32363a3034
+  PASS  docs/capture/stat-lo.pcap: data packets starting with magic 504d (= 2)
+  PASS  docs/capture/stat-ens4.pcap: packets (= 10)
+      10.77.0.21	10.77.0.10	12	504d02000000000000000000
+      10.77.0.10	10.77.0.21	195	504d0200000000b71a0a7d1874696d653d31303a32363a30
+  PASS  docs/capture/stat-ens4.pcap: data packets starting with magic 504d (= 2)
+== 7. robustness, R1 checked independently
+  PASS  zombies with --no-reap (= 5)
+  PASS  zombies with reaping (= 0)
+== report: every source file is in the appendix
+  PASS  source files missing from the appendix (= 0)
+  PASS  report images that do not exist (= 0)
+      images in report: 12
+
+RESULT: 50 passed, 0 failed
