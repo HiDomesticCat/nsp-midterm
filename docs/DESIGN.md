@@ -16,12 +16,12 @@ server 跑在被監控的主機上，多個 client 同時連線查詢它的系�
 | 題目要求 | 做法 | demo 時怎麼看 | 狀態 |
 |---|---|---|---|
 | 每個連線 `fork()`，不用 thread | parent 只 accept 與 fork，child 服務一個連線 | client 會印出服務它的 child pid，每個 client 都不同 | 完成 |
-| 至少 10 個 client 同時連線，附執行期證明 | 10 個 client 同時 `watch` | `ps --forest` 看到 1 個 parent 加 10 個 child，`ss -tn` 看到 10 條連線 | 完成，待寫成 demo 腳本 |
-| 封包擷取與分析 | 自訂 12 位元組標頭的二進位協定 | `tcpdump -X` 的輸出逐欄對照標頭格式 | 待做 |
+| 至少 10 個 client 同時連線，附執行期證明 | 10 個 client 同時 `watch` | `ps --forest` 看到 1 個 parent 加 10 個 child，`ss -tn` 看到 10 條連線 | 完成（`demo/02-ten-clients.sh`） |
+| 封包擷取與分析 | 自訂 12 位元組標頭的二進位協定 | `tcpdump -X` 的輸出逐欄對照標頭格式 | 完成（`docs/CAPTURE.md`） |
 | 編譯期與執行期兩層 debug log | 編譯期巨集、執行期參數與訊號 | 兩種建置的 `strings` 結果不同；對執行中的 server 送訊號，log 立刻變多 | 完成 |
 | 共用函式包成 `.so` | `libpmon.so` 給兩邊連結 | `ldd` 兩個執行檔；server 與 client VM 上的函式庫 `sha256sum` 相同 | 完成 |
 | client 向 server 要系統資訊 | `pmon sysinfo`、`pmon stat`、`pmon watch` | 直接執行 | 完成 |
-| 強健性，至少三組有與沒有的對照 | 四個機制各有一個關閉參數 | 同一支腳本開與關各跑一次 | 機制完成，關閉參數待做 |
+| 強健性，至少三組有與沒有的對照 | 四個機制各有一個關閉參數 | 同一支腳本開與關各跑一次 | 完成（`demo/r1`–`r4`） |
 | Makefile 或 CMake | 手寫 Makefile | `make` | 完成 |
 
 ## 2. 功能
@@ -140,7 +140,7 @@ log 的每一行有時間、等級、程式名稱與 pid、原始檔與行號。
 | R1 | child 結束 | `SIGCHLD` + `waitpid` | `--no-reap` | 連續執行幾次 `pmon stat` | `ps` 裡 `<defunct>` 越來越多 | 沒有殭屍行程 |
 | R2 | 不是本協定的資料 | 檢查 magic、length 上限、CRC | `--no-validate` | `curl http://server:9419/` | child 把 HTTP 文字當成標頭，配置大量記憶體並等待一個巨大的 payload | 立刻回 BAD_REQUEST 並斷線 |
 | R3 | client 連上後不送資料 | 讀取逾時 10 秒 | `--no-timeout` | `nc server 9419` 後放著 | child 一直存在 | 逾時後 child 記錄並結束 |
-| R4 | `watch` 途中 client 被強制結束 | 忽略 `SIGPIPE`，由 `send()` 回傳 `EPIPE` | `--no-sigpipe` | `watch` 途中 `kill -9` client | parent 記錄 child 被 `SIGPIPE` 殺掉 | child 記錄 client 已離開並正常結束 |
+| R4 | `watch` 途中 client 被強制結束 | 等待時留意連線是否關閉；忽略 `SIGPIPE`，由 `send()` 回傳 `EPIPE` | `--no-sigpipe` | `watch` 途中 `kill -9` client | parent 記錄 child 被 `SIGPIPE` 殺掉 | child 記錄 client 已離開並正常結束 |
 
 不設關閉參數但同樣有做的：
 
@@ -187,12 +187,12 @@ nsp-midterm/
   lib/              libpmon.so：log.c io.c proto.c kv.c
   server/           pmond：pmond.c session.c sysinfo.c metrics.c
   client/           pmon：pmon.c
-  demo/             每個展示項目一支腳本（待做）
+  demo/             每個展示項目一支腳本
   infra/            OpenStack 環境
   docs/             設計文件、報告
 ```
 
-## 9. Demo 腳本（待做）
+## 9. Demo 腳本
 
 每支腳本只做一件事，輸出就是要放進報告的截圖。
 
@@ -216,5 +216,5 @@ nsp-midterm/
 |---|---|---|
 | 1 | Makefile、`libpmon.so`、log、協定、fork server、`sysinfo` | 完成 |
 | 2 | 效能數據 `stat`、即時監看 `watch` | 完成 |
-| 3 | 四個關閉參數、demo 腳本、封包擷取 | 待做 |
+| 3 | 四個關閉參數、demo 腳本、封包擷取與分析 | 完成 |
 | 4 | 報告與影片 | 待做 |
