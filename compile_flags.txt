@@ -1,0 +1,6 @@
+-std=c11
+-D_GNU_SOURCE
+-DPMON_DEBUG
+-Iinclude
+-Wall
+-Wextra
