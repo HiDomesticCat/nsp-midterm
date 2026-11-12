@@ -61,7 +61,8 @@ static void handle_stat(int fd)
 
 /* WATCH: push a sample every interval. Ends after count samples, or when
  * the client goes away. Returns 0 if the connection can no longer be used. */
-static int handle_watch(int fd, const char *peer, const char *params)
+static int handle_watch(int fd, const char *peer, const char *params,
+                        const struct server_opts *opts)
 {
     int interval = (int)kv_get_num(params, "interval", 1);
     int count = (int)kv_get_num(params, "count", 0);     /* 0 = no limit */
@@ -78,7 +79,11 @@ static int handle_watch(int fd, const char *peer, const char *params)
     while (count == 0 || sent < count) {
         /* The client sends nothing while watching, so a readable socket
          * means it closed the connection (or broke the protocol). */
-        if (!wait_or_client(fd, interval * 1000)) {
+        if (!opts->sigpipe_guard) {
+            /* Demonstration only: wait blindly and write without checking
+             * whether anyone is still there. */
+            sleep((unsigned)interval);
+        } else if (!wait_or_client(fd, interval * 1000)) {
             LOG_INFO("%s stopped watching after %d sample(s)", peer, sent);
             return 0;
         }
@@ -167,7 +172,7 @@ void session_run(int fd, const char *peer, const struct server_opts *opts)
             handle_stat(fd);
             break;
         case OP_WATCH:
-            usable = handle_watch(fd, peer, payload);
+            usable = handle_watch(fd, peer, payload, opts);
             break;
         default:
             proto_send(fd, op, ST_BAD_REQUEST, NULL, 0);

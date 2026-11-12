@@ -9,6 +9,11 @@ struct server_opts {
     int max_clients;      /* concurrent connections before replying BUSY */
     int timeout_ms;       /* how long a child waits for the next request */
     int validate;         /* check incoming frames (see proto_recv) */
+
+    /* Robustness mechanisms. All on by default; each can be switched off
+     * from the command line to show what happens without it. */
+    int reap;             /* collect exited children (no zombies) */
+    int sigpipe_guard;    /* survive a client that vanishes mid-stream */
 };
 
 /* Serve one client until it disconnects. Runs in the child process. */

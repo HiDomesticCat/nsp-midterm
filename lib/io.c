@@ -40,6 +40,13 @@ int io_read_full(int fd, void *buf, size_t n, int timeout_ms)
     return IO_OK;
 }
 
+static int g_send_flags = MSG_NOSIGNAL;
+
+void io_set_sigpipe_guard(int on)
+{
+    g_send_flags = on ? MSG_NOSIGNAL : 0;
+}
+
 int io_write_full(int fd, const void *buf, size_t n)
 {
     const char *p = buf;
@@ -48,7 +55,7 @@ int io_write_full(int fd, const void *buf, size_t n)
     while (sent < n) {
         /* MSG_NOSIGNAL: if the peer is gone we get EPIPE back instead of
          * being killed by SIGPIPE. */
-        ssize_t k = send(fd, p + sent, n - sent, MSG_NOSIGNAL);
+        ssize_t k = send(fd, p + sent, n - sent, g_send_flags);
 
         if (k < 0) {
             if (errno == EINTR)

@@ -10,6 +10,7 @@
 #include <arpa/inet.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <getopt.h>
 #include <netinet/in.h>
 #include <poll.h>
 #include <signal.h>
@@ -50,7 +51,7 @@ static void on_sigusr1(int sig)
     log_toggle_debug();
 }
 
-static void install_handlers(void)
+static void install_handlers(const struct server_opts *opts)
 {
     struct sigaction sa;
 
@@ -59,8 +60,10 @@ static void install_handlers(void)
 
     /* No SA_RESTART: a signal makes poll() in the main loop return, and the
      * loop then looks at the flags. */
-    sa.sa_handler = on_sigchld;
-    sigaction(SIGCHLD, &sa, NULL);
+    if (opts->reap) {
+        sa.sa_handler = on_sigchld;
+        sigaction(SIGCHLD, &sa, NULL);
+    }
     sa.sa_handler = on_stop;
     sigaction(SIGINT, &sa, NULL);
     sigaction(SIGTERM, &sa, NULL);
@@ -68,7 +71,9 @@ static void install_handlers(void)
     sigaction(SIGUSR1, &sa, NULL);
 
     /* Writing to a client that has gone must not kill the process. */
-    signal(SIGPIPE, SIG_IGN);
+    if (opts->sigpipe_guard)
+        signal(SIGPIPE, SIG_IGN);
+    io_set_sigpipe_guard(opts->sigpipe_guard);
 }
 
 /* Collect every child that has exited, so none is left as a zombie.
@@ -220,9 +225,23 @@ static void usage(void)
             "  -p  TCP port to listen on (default %d)\n"
             "  -m  concurrent clients before replying BUSY (default 64)\n"
             "  -t  seconds to wait for a silent client (default 10)\n"
-            "  -v  debug output (debug build only)\n",
+            "  -v  debug output (debug build only)\n"
+            "\n"
+            "switch one robustness mechanism off, to see what it prevents:\n"
+            "  --no-reap      do not collect exited children\n"
+            "  --no-validate  do not check incoming frames\n"
+            "  --no-timeout   wait forever for a silent client\n"
+            "  --no-sigpipe   do not guard writes to a vanished client\n",
             PMON_PORT);
 }
+
+static const struct option long_opts[] = {
+    { "no-reap",     no_argument, NULL, 'R' },
+    { "no-validate", no_argument, NULL, 'V' },
+    { "no-timeout",  no_argument, NULL, 'T' },
+    { "no-sigpipe",  no_argument, NULL, 'S' },
+    { NULL, 0, NULL, 0 }
+};
 
 int main(int argc, char **argv)
 {
@@ -231,17 +250,23 @@ int main(int argc, char **argv)
         .max_clients = 64,
         .timeout_ms = 10000,
         .validate = 1,
+        .reap = 1,
+        .sigpipe_guard = 1,
     };
-    int c, listen_fd;
+    int c, listen_fd, no_timeout = 0;
 
     log_init("pmond");
 
-    while ((c = getopt(argc, argv, "p:m:t:vh")) != -1) {
+    while ((c = getopt_long(argc, argv, "p:m:t:vh", long_opts, NULL)) != -1) {
         switch (c) {
         case 'p': opts.port = atoi(optarg); break;
         case 'm': opts.max_clients = atoi(optarg); break;
         case 't': opts.timeout_ms = atoi(optarg) * 1000; break;
         case 'v': log_set_debug(1); break;
+        case 'R': opts.reap = 0; break;
+        case 'V': opts.validate = 0; break;
+        case 'T': no_timeout = 1; break;
+        case 'S': opts.sigpipe_guard = 0; break;
         default:  usage(); return c == 'h' ? 0 : 2;
         }
     }
@@ -249,16 +274,24 @@ int main(int argc, char **argv)
         fprintf(stderr, "pmond: -m must be between 1 and %d\n", MAX_KIDS);
         return 2;
     }
+    if (no_timeout)
+        opts.timeout_ms = -1;          /* poll() waits forever */
 #ifndef PMON_DEBUG
     LOG_INFO("normal build: debug messages are compiled out");
 #endif
+    if (!opts.reap || !opts.validate || no_timeout || !opts.sigpipe_guard)
+        LOG_INFO("UNSAFE demonstration mode:%s%s%s%s",
+                 opts.reap ? "" : " no-reap",
+                 opts.validate ? "" : " no-validate",
+                 no_timeout ? " no-timeout" : "",
+                 opts.sigpipe_guard ? "" : " no-sigpipe");
 
     listen_fd = listen_on(opts.port);
     if (listen_fd < 0) {
         LOG_ERROR("cannot listen on port %d: %s", opts.port, strerror(errno));
         return 1;
     }
-    install_handlers();
+    install_handlers(&opts);
 
     LOG_INFO("listening on port %d, up to %d clients",
              opts.port, opts.max_clients);

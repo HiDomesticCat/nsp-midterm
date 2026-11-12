@@ -60,6 +60,11 @@ enum {
 int io_read_full(int fd, void *buf, size_t n, int timeout_ms);
 int io_write_full(int fd, const void *buf, size_t n);
 
+/* By default a write to a peer that has gone returns EPIPE. Turning the
+ * guard off lets the kernel raise SIGPIPE instead (only used to demonstrate
+ * why the guard is needed). */
+void io_set_sigpipe_guard(int on);
+
 /* ---- protocol -----------------------------------------------------------
  *
  * Every message, request or response, is one frame:
