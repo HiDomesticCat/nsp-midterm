@@ -398,7 +398,7 @@ The sections below are screenshots of the matching scripts in the `demo/` direct
 
 ## 4.5 Automatic check of every requirement
 
-`demo/verify.sh` does not use the demo scripts above. It rebuilds both variants, starts the server by itself, checks every requirement in turn and prints PASS or FAIL. The complete output follows; all 54 checks pass.
+`demo/verify.sh` does not use the demo scripts above. It rebuilds both variants, starts the server by itself, checks every requirement in turn and prints PASS or FAIL. The complete output follows; all 59 checks pass.
 
 @include docs/output/verify.txt
 
@@ -629,7 +629,7 @@ cd pmon
 make
 ```
 
-The files in the archive:
+The files in the archive are listed below. The `docs/` directory also holds the design notes, the packet analysis, the screenshots and the source of this report.
 
 | File | Content |
 |---|---|
@@ -651,12 +651,8 @@ The files in the archive:
 | `demo/03-capture.sh` | Demo: packet capture |
 | `demo/04-debug-log.sh` | Demo: two levels of debug logging |
 | `demo/05-shared-lib.sh` | Demo: shared dynamic library |
-| `demo/r1-zombie.sh` | Robustness R1, with and without |
-| `demo/r2-validate.sh` | Robustness R2, with and without |
-| `demo/r3-timeout.sh` | Robustness R3, with and without |
-| `demo/r4-sigpipe.sh` | Robustness R4, with and without |
+| `demo/r1-zombie.sh`, `demo/r2-validate.sh`, `demo/r3-timeout.sh`, `demo/r4-sigpipe.sh` | Robustness R1 to R4, each with and without the mechanism |
 | `demo/run-all.sh` | Runs every demo in order |
 | `demo/verify.sh` | Checks every requirement and prints PASS or FAIL |
 | `docs/capture/pmon.lua` | Wireshark dissector for the pmon frame |
 | `docs/capture/*.pcap`, `*.txt` | The two packet captures and their `tcpdump` output |
-| `docs/` | Design notes, packet analysis, screenshots, and the source of this report |

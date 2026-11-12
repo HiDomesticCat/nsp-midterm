@@ -28,7 +28,7 @@
       hostname=nsp-server
       kernel=Linux 6.8.0-142-generic x86_64
       cpus=2
-      uptime=6d 8h 58m
+      uptime=6d 9h 37m
       mem_total_mb=3915
   PASS  pmon stat exit status (= 0)
   PASS  pmon watch -n 2 exit status (= 0)
@@ -76,9 +76,15 @@
 == 7. robustness, R1 checked independently
   PASS  zombies with --no-reap (= 5)
   PASS  zombies with reaping (= 0)
-== report: every source file is in the appendix
-  PASS  source files missing from the appendix (= 0)
+== source archive handed in with the report (make dist)
+  PASS  source files missing from the archive (= 0)
+  PASS  source files in the archive that differ from the working tree (= 0)
+  PASS  archive unpacked elsewhere: make exit status (= 0)
+  PASS  archive build: compiler warnings (= 0)
+  PASS  archive build: programs produced (= 3)
+      files in archive: 65, 1482704 bytes
+  PASS  source files not listed in the report appendix (= 0)
   PASS  report images that do not exist (= 0)
       images in report: 12
 
-RESULT: 54 passed, 0 failed
+RESULT: 59 passed, 0 failed
