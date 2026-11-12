@@ -1,5 +1,4 @@
 /* sysinfo.c - static facts about the machine the server runs on */
-#include "pmon.h"
 #include "server.h"
 
 #include <stdio.h>

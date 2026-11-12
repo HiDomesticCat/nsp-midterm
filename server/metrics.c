@@ -1,5 +1,4 @@
 /* metrics.c - performance counters read from /proc */
-#include "pmon.h"
 #include "server.h"
 
 #include <stdio.h>
