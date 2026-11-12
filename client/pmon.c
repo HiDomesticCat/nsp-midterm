@@ -6,6 +6,7 @@
 #include "pmon.h"
 
 #include <errno.h>
+#include <getopt.h>
 #include <netdb.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -106,15 +107,44 @@ static int request(int fd, uint8_t op, const char *params, char **reply)
     return receive(fd, RESPONSE_TIMEOUT_MS, reply);
 }
 
+/* Convert an option value to a number. Unlike atoi(), this rejects text
+ * that is not entirely a number ("abc", "5x", "") and values out of range,
+ * and says which option was wrong. Returns 0 on success. */
+static int parse_int(const char *text, const char *what, int min, int max, int *out)
+{
+    char *end;
+    long v;
+
+    errno = 0;
+    v = strtol(text, &end, 10);
+    if (end == text || *end != '\0' || errno != 0 || v < min || v > max) {
+        fprintf(stderr, "pmon: %s must be a number from %d to %d, not '%s'\n",
+                what, min, max, text);
+        return -1;
+    }
+    *out = (int)v;
+    return 0;
+}
+
+/* Each command parses its own options with getopt. argv[0] is the command
+ * name, exactly as a program sees its own name, so getopt works unchanged.
+ * A command returns 0 on success, 1 on failure, 2 if it was used wrongly. */
+
 /* pmon sysinfo [--hold seconds] */
 static int cmd_sysinfo(const char *server, int argc, char **argv)
 {
+    static const struct option long_opts[] = {
+        { "hold", required_argument, NULL, 'H' },
+        { NULL, 0, NULL, 0 }
+    };
     char *reply;
-    int hold = 0, fd, status;
+    int hold = 0, fd, status, c;
 
-    if (argc == 2 && strcmp(argv[0], "--hold") == 0)
-        hold = atoi(argv[1]);
-    else if (argc != 0)
+    while ((c = getopt_long(argc, argv, "", long_opts, NULL)) != -1) {
+        if (c != 'H' || parse_int(optarg, "--hold", 0, 3600, &hold) != 0)
+            return 2;
+    }
+    if (optind != argc)
         return 2;
 
     fd = connect_to(server);
@@ -137,13 +167,14 @@ static int cmd_sysinfo(const char *server, int argc, char **argv)
 }
 
 /* pmon stat */
-static int cmd_stat(const char *server, int argc)
+static int cmd_stat(const char *server, int argc, char **argv)
 {
     char *reply;
     int fd, status;
 
-    if (argc != 0)
+    if (getopt(argc, argv, "") != -1 || optind != argc)
         return 2;
+
     fd = connect_to(server);
     if (fd < 0)
         return 1;
@@ -160,17 +191,23 @@ static int cmd_stat(const char *server, int argc)
 static int cmd_watch(const char *server, int argc, char **argv)
 {
     char params[64], *reply;
-    int interval = 1, count = 0, shown = 0, fd, status, i;
+    int interval = 1, count = 0, shown = 0, fd, status, c;
 
-    for (i = 0; i + 1 < argc; i += 2) {
-        if (strcmp(argv[i], "-i") == 0)
-            interval = atoi(argv[i + 1]);
-        else if (strcmp(argv[i], "-n") == 0)
-            count = atoi(argv[i + 1]);
-        else
+    while ((c = getopt(argc, argv, "i:n:")) != -1) {
+        switch (c) {
+        case 'i':
+            if (parse_int(optarg, "-i", 1, 60, &interval) != 0)
+                return 2;
+            break;
+        case 'n':
+            if (parse_int(optarg, "-n", 0, 1000000, &count) != 0)
+                return 2;
+            break;
+        default:
             return 2;
+        }
     }
-    if (i != argc || interval < 1 || interval > 60 || count < 0)
+    if (optind != argc)
         return 2;
 
     fd = connect_to(server);
@@ -220,14 +257,29 @@ static int cmd_watch(const char *server, int argc, char **argv)
     return 0;
 }
 
+/* The commands, in one table: main() looks the name up here, and usage()
+ * prints from here. Adding a command means adding one row. */
+static const struct command {
+    const char *name;
+    int (*run)(const char *server, int argc, char **argv);
+    const char *args;
+    const char *help;
+} commands[] = {
+    { "sysinfo", cmd_sysinfo, "[--hold seconds]",        "facts about the server machine" },
+    { "stat",    cmd_stat,    "",                         "current CPU, memory, disk, network" },
+    { "watch",   cmd_watch,   "[-i seconds] [-n count]",  "keep showing them (Ctrl+C to stop)" },
+};
+#define N_COMMANDS (sizeof commands / sizeof commands[0])
+
 static void usage(void)
 {
+    size_t i;
+
+    fprintf(stderr, "usage: pmon [-s host[:port]] [-v] <command> [options]\n\n");
+    for (i = 0; i < N_COMMANDS; i++)
+        fprintf(stderr, "  %-8s %-25s %s\n",
+                commands[i].name, commands[i].args, commands[i].help);
     fprintf(stderr,
-            "usage: pmon [-s host[:port]] [-v] <command>\n"
-            "\n"
-            "  sysinfo [--hold seconds]        facts about the server machine\n"
-            "  stat                            current CPU, memory, disk, network\n"
-            "  watch [-i seconds] [-n count]   keep showing them (Ctrl+C to stop)\n"
             "\n"
             "  -s  server address (default: $PMON_SERVER, else 127.0.0.1:%d)\n"
             "  -v  debug output (debug build only)\n",
@@ -237,9 +289,9 @@ static void usage(void)
 int main(int argc, char **argv)
 {
     const char *server = getenv("PMON_SERVER");
-    const char *cmd;
-    int c, rc, nargs;
-    char **args;
+    const struct command *cmd = NULL;
+    size_t i;
+    int c, rc;
 
     log_init("pmon");
     if (server == NULL)
@@ -264,19 +316,24 @@ int main(int argc, char **argv)
         usage();
         return 2;
     }
-    cmd = argv[optind];
-    args = argv + optind + 1;
-    nargs = argc - optind - 1;
 
-    if (strcmp(cmd, "sysinfo") == 0)
-        rc = cmd_sysinfo(server, nargs, args);
-    else if (strcmp(cmd, "stat") == 0)
-        rc = cmd_stat(server, nargs);
-    else if (strcmp(cmd, "watch") == 0)
-        rc = cmd_watch(server, nargs, args);
-    else
-        rc = 2;
+    for (i = 0; i < N_COMMANDS; i++) {
+        if (strcmp(argv[optind], commands[i].name) == 0)
+            cmd = &commands[i];
+    }
+    if (cmd == NULL) {
+        fprintf(stderr, "pmon: unknown command '%s'\n", argv[optind]);
+        usage();
+        return 2;
+    }
 
+    /* Hand the command its own argument list, starting at its name, and
+     * make getopt start over on it (glibc restarts when optind is 0). */
+    argc -= optind;
+    argv += optind;
+    optind = 0;
+
+    rc = cmd->run(server, argc, argv);
     if (rc == 2)
         usage();
     return rc;

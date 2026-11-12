@@ -1,17 +1,17 @@
 
 ==== WITHOUT the mechanism (--no-reap) ====
-$ build/bin/pmond -p 9419 --no-reap    (pid 58390, log in /tmp/pmond-demo.log)
+$ build/bin/pmond -p 9419 --no-reap    (pid 65238, log in /tmp/pmond-demo.log)
 $ 5 x pmon stat
 children of the server after all five clients have finished:
-  child 58402  state Z  0 MB  pmond
-  child 58408  state Z  0 MB  pmond
-  child 58410  state Z  0 MB  pmond
-  child 58412  state Z  0 MB  pmond
-  child 58414  state Z  0 MB  pmond
+  child 65246  state Z  0 MB  pmond
+  child 65252  state Z  0 MB  pmond
+  child 65255  state Z  0 MB  pmond
+  child 65257  state Z  0 MB  pmond
+  child 65259  state Z  0 MB  pmond
 zombies: 5
 
 ==== WITH the mechanism (SIGCHLD + waitpid loop) ====
-$ build/bin/pmond -p 9419     (pid 58423, log in /tmp/pmond-demo.log)
+$ build/bin/pmond -p 9419     (pid 65267, log in /tmp/pmond-demo.log)
 $ 5 x pmon stat
 children of the server after all five clients have finished:
 zombies: 0

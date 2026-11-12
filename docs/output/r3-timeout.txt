@@ -1,17 +1,17 @@
 
 ==== WITHOUT the mechanism (--no-timeout) ====
-$ build/bin/pmond -p 9419 -t 3 --no-timeout    (pid 58528, log in /tmp/pmond-demo.log)
+$ build/bin/pmond -p 9419 -t 3 --no-timeout    (pid 65378, log in /tmp/pmond-demo.log)
 $ nc 127.0.0.1 9419    (connected, sends nothing)
 after 1 s: 1 child serving it
 after 5 s: 1 child serving it
 server log:
-  2026-11-12 10:29:46.305 [INFO ] pmond[58540] server/session.c:134: 127.0.0.1:47516 connected
+  2026-11-12 11:52:31.629 [INFO ] pmond[65390] server/session.c:134: 127.0.0.1:54556 connected
 
 ==== WITH the mechanism (3 second read timeout) ====
-$ build/bin/pmond -p 9419 -t 3    (pid 58560, log in /tmp/pmond-demo.log)
+$ build/bin/pmond -p 9419 -t 3    (pid 65412, log in /tmp/pmond-demo.log)
 $ nc 127.0.0.1 9419    (connected, sends nothing)
 after 1 s: 1 child serving it
 after 5 s: 0 child serving it
 server log:
-  2026-11-12 10:29:51.821 [INFO ] pmond[58571] server/session.c:134: 127.0.0.1:47524 connected
-  2026-11-12 10:29:54.825 [INFO ] pmond[58571] server/session.c:149: 127.0.0.1:47524 sent nothing for 3 s, closing
+  2026-11-12 11:52:37.145 [INFO ] pmond[65425] server/session.c:134: 127.0.0.1:47644 connected
+  2026-11-12 11:52:40.148 [INFO ] pmond[65425] server/session.c:149: 127.0.0.1:47644 sent nothing for 3 s, closing

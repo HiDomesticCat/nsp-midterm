@@ -14,11 +14,11 @@ kv_get_num		pmon_crc32
 --- pmond
   0x0000000000000001 (NEEDED)             Shared library: [libpmon.so]
   0x000000000000001d (RUNPATH)            Library runpath: [$ORIGIN/../lib]
-  libpmon.so => /home/ubuntu/nsp-midterm/build/bin/../lib/libpmon.so (0x00007652332ca000)
+  libpmon.so => /home/ubuntu/nsp-midterm/build/bin/../lib/libpmon.so (0x00007b6442722000)
 --- pmon
   0x0000000000000001 (NEEDED)             Shared library: [libpmon.so]
   0x000000000000001d (RUNPATH)            Library runpath: [$ORIGIN/../lib]
-  libpmon.so => /home/ubuntu/nsp-midterm/build/bin/../lib/libpmon.so (0x00007a9a8cd24000)
+  libpmon.so => /home/ubuntu/nsp-midterm/build/bin/../lib/libpmon.so (0x00007f0229b61000)
 
 ==== the functions are not copied into the programs ====
 pmond: proto_send is 'U' (U = undefined here, resolved from libpmon.so at load time)

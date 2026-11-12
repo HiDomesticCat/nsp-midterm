@@ -1,6 +1,6 @@
 
 ==== start the server ====
-$ build/bin/pmond -p 9419     (pid 58170, log in /tmp/pmond-demo.log)
+$ build/bin/pmond -p 9419     (pid 65019, log in /tmp/pmond-demo.log)
 
 ==== ten clients, each watching for 6 seconds ====
 $ 10 x build/bin/pmon watch -n 6 &
@@ -8,58 +8,58 @@ $ 10 x build/bin/pmon watch -n 6 &
 ==== proof 1: process tree - one parent, ten children ====
 $ ps --forest -o pid,ppid,stat,etime,cmd -C pmond
     PID    PPID STAT     ELAPSED CMD
-  58170   58164 S          00:03 build/bin/pmond -p 9419
-  58182   58170 S          00:03  \_ build/bin/pmond -p 9419
-  58183   58170 S          00:03  \_ build/bin/pmond -p 9419
-  58192   58170 S          00:03  \_ build/bin/pmond -p 9419
-  58193   58170 S          00:03  \_ build/bin/pmond -p 9419
-  58194   58170 S          00:03  \_ build/bin/pmond -p 9419
-  58195   58170 S          00:03  \_ build/bin/pmond -p 9419
-  58196   58170 S          00:03  \_ build/bin/pmond -p 9419
-  58197   58170 S          00:03  \_ build/bin/pmond -p 9419
-  58198   58170 S          00:03  \_ build/bin/pmond -p 9419
-  58199   58170 S          00:03  \_ build/bin/pmond -p 9419
+  65019   65013 S          00:03 build/bin/pmond -p 9419
+  65036   65019 S          00:03  \_ build/bin/pmond -p 9419
+  65037   65019 S          00:03  \_ build/bin/pmond -p 9419
+  65038   65019 S          00:03  \_ build/bin/pmond -p 9419
+  65039   65019 S          00:03  \_ build/bin/pmond -p 9419
+  65041   65019 S          00:03  \_ build/bin/pmond -p 9419
+  65042   65019 S          00:03  \_ build/bin/pmond -p 9419
+  65044   65019 S          00:03  \_ build/bin/pmond -p 9419
+  65045   65019 S          00:03  \_ build/bin/pmond -p 9419
+  65046   65019 S          00:03  \_ build/bin/pmond -p 9419
+  65048   65019 S          00:03  \_ build/bin/pmond -p 9419
 
 ==== proof 2: ten established TCP connections on port 9419 ====
 $ ss -tn state established ( sport = :9419 )
 Recv-Q Send-Q Local Address:Port Peer Address:Port Process
-0      0          127.0.0.1:9419    127.0.0.1:59944       
-0      0          127.0.0.1:9419    127.0.0.1:59972       
-0      0          127.0.0.1:9419    127.0.0.1:59988       
-0      0          127.0.0.1:9419    127.0.0.1:59958       
-0      0          127.0.0.1:9419    127.0.0.1:60006       
-0      0          127.0.0.1:9419    127.0.0.1:59970       
-0      0          127.0.0.1:9419    127.0.0.1:59992       
-0      0          127.0.0.1:9419    127.0.0.1:60014       
-0      0          127.0.0.1:9419    127.0.0.1:59956       
-0      0          127.0.0.1:9419    127.0.0.1:59948       
+0      0          127.0.0.1:9419    127.0.0.1:32964       
+0      0          127.0.0.1:9419    127.0.0.1:32986       
+0      0          127.0.0.1:9419    127.0.0.1:32918       
+0      0          127.0.0.1:9419    127.0.0.1:32944       
+0      0          127.0.0.1:9419    127.0.0.1:32974       
+0      0          127.0.0.1:9419    127.0.0.1:32930       
+0      0          127.0.0.1:9419    127.0.0.1:32996       
+0      0          127.0.0.1:9419    127.0.0.1:32960       
+0      0          127.0.0.1:9419    127.0.0.1:33010       
+0      0          127.0.0.1:9419    127.0.0.1:32950       
 connections: 10
 by client address:
      10 127.0.0.1
 
 ==== wait for the clients to finish ====
 each client was served by a different process:
-      1 server pid 58182, every 1 s
-      1 server pid 58183, every 1 s
-      1 server pid 58192, every 1 s
-      1 server pid 58193, every 1 s
-      1 server pid 58194, every 1 s
-      1 server pid 58195, every 1 s
-      1 server pid 58196, every 1 s
-      1 server pid 58197, every 1 s
-      1 server pid 58198, every 1 s
-      1 server pid 58199, every 1 s
+      1 server pid 65036, every 1 s
+      1 server pid 65037, every 1 s
+      1 server pid 65038, every 1 s
+      1 server pid 65039, every 1 s
+      1 server pid 65041, every 1 s
+      1 server pid 65042, every 1 s
+      1 server pid 65044, every 1 s
+      1 server pid 65045, every 1 s
+      1 server pid 65046, every 1 s
+      1 server pid 65048, every 1 s
 children left: 0   zombies: 0
 
 ==== proof 3: the server log, one pid per client ====
 clients that connected: 10
-2026-11-12 10:29:16.442 [INFO ] pmond[58182] server/session.c:134: 127.0.0.1:59944 connected
-2026-11-12 10:29:16.443 [INFO ] pmond[58183] server/session.c:134: 127.0.0.1:59948 connected
-2026-11-12 10:29:16.447 [INFO ] pmond[58192] server/session.c:134: 127.0.0.1:59956 connected
-2026-11-12 10:29:16.447 [INFO ] pmond[58195] server/session.c:134: 127.0.0.1:59972 connected
-2026-11-12 10:29:16.447 [INFO ] pmond[58194] server/session.c:134: 127.0.0.1:59970 connected
-2026-11-12 10:29:16.447 [INFO ] pmond[58193] server/session.c:134: 127.0.0.1:59958 connected
-2026-11-12 10:29:16.447 [INFO ] pmond[58196] server/session.c:134: 127.0.0.1:59988 connected
-2026-11-12 10:29:16.447 [INFO ] pmond[58197] server/session.c:134: 127.0.0.1:59992 connected
-2026-11-12 10:29:16.448 [INFO ] pmond[58198] server/session.c:134: 127.0.0.1:60006 connected
-2026-11-12 10:29:16.448 [INFO ] pmond[58199] server/session.c:134: 127.0.0.1:60014 connected
+2026-11-12 11:52:02.190 [INFO ] pmond[65036] server/session.c:134: 127.0.0.1:32918 connected
+2026-11-12 11:52:02.190 [INFO ] pmond[65037] server/session.c:134: 127.0.0.1:32944 connected
+2026-11-12 11:52:02.191 [INFO ] pmond[65038] server/session.c:134: 127.0.0.1:32930 connected
+2026-11-12 11:52:02.191 [INFO ] pmond[65039] server/session.c:134: 127.0.0.1:32950 connected
+2026-11-12 11:52:02.191 [INFO ] pmond[65041] server/session.c:134: 127.0.0.1:32960 connected
+2026-11-12 11:52:02.191 [INFO ] pmond[65042] server/session.c:134: 127.0.0.1:32964 connected
+2026-11-12 11:52:02.191 [INFO ] pmond[65044] server/session.c:134: 127.0.0.1:32974 connected
+2026-11-12 11:52:02.192 [INFO ] pmond[65045] server/session.c:134: 127.0.0.1:32986 connected
+2026-11-12 11:52:02.192 [INFO ] pmond[65046] server/session.c:134: 127.0.0.1:32996 connected
+2026-11-12 11:52:02.193 [INFO ] pmond[65048] server/session.c:134: 127.0.0.1:33010 connected

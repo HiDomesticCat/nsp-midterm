@@ -1,6 +1,6 @@
 
 ==== start the server ====
-$ build/bin/pmond -p 9419     (pid 58648, log in /tmp/pmond-demo.log)
+$ build/bin/pmond -p 9419     (pid 65501, log in /tmp/pmond-demo.log)
 
 ==== ten clients, each watching for 6 seconds ====
 $ ssh nsp-client-1 '5 x pmon -s nsp-server watch -n 6'
@@ -9,31 +9,31 @@ $ ssh nsp-client-2 '5 x pmon -s nsp-server watch -n 6'
 ==== proof 1: process tree - one parent, ten children ====
 $ ps --forest -o pid,ppid,stat,etime,cmd -C pmond
     PID    PPID STAT     ELAPSED CMD
-  58648   58642 S          00:03 build/bin/pmond -p 9419
-  58663   58648 S          00:02  \_ build/bin/pmond -p 9419
-  58664   58648 S          00:02  \_ build/bin/pmond -p 9419
-  58665   58648 S          00:02  \_ build/bin/pmond -p 9419
-  58666   58648 S          00:02  \_ build/bin/pmond -p 9419
-  58667   58648 S          00:02  \_ build/bin/pmond -p 9419
-  58668   58648 S          00:02  \_ build/bin/pmond -p 9419
-  58669   58648 S          00:02  \_ build/bin/pmond -p 9419
-  58670   58648 S          00:02  \_ build/bin/pmond -p 9419
-  58671   58648 S          00:02  \_ build/bin/pmond -p 9419
-  58672   58648 S          00:02  \_ build/bin/pmond -p 9419
+  65501   65495 S          00:03 build/bin/pmond -p 9419
+  65517   65501 S          00:02  \_ build/bin/pmond -p 9419
+  65518   65501 S          00:02  \_ build/bin/pmond -p 9419
+  65519   65501 S          00:02  \_ build/bin/pmond -p 9419
+  65520   65501 S          00:02  \_ build/bin/pmond -p 9419
+  65521   65501 S          00:02  \_ build/bin/pmond -p 9419
+  65522   65501 S          00:02  \_ build/bin/pmond -p 9419
+  65523   65501 S          00:02  \_ build/bin/pmond -p 9419
+  65524   65501 S          00:02  \_ build/bin/pmond -p 9419
+  65525   65501 S          00:02  \_ build/bin/pmond -p 9419
+  65526   65501 S          00:02  \_ build/bin/pmond -p 9419
 
 ==== proof 2: ten established TCP connections on port 9419 ====
 $ ss -tn state established ( sport = :9419 )
 Recv-Q Send-Q Local Address:Port Peer Address:Port Process
-0      0         10.77.0.10:9419   10.77.0.22:41552       
-0      0         10.77.0.10:9419   10.77.0.22:41566       
-0      0         10.77.0.10:9419   10.77.0.21:57258       
-0      0         10.77.0.10:9419   10.77.0.22:41582       
-0      0         10.77.0.10:9419   10.77.0.22:41584       
-0      0         10.77.0.10:9419   10.77.0.21:57218       
-0      0         10.77.0.10:9419   10.77.0.21:57272       
-0      0         10.77.0.10:9419   10.77.0.21:57246       
-0      0         10.77.0.10:9419   10.77.0.22:41596       
-0      0         10.77.0.10:9419   10.77.0.21:57232       
+0      0         10.77.0.10:9419   10.77.0.22:55264       
+0      0         10.77.0.10:9419   10.77.0.22:55262       
+0      0         10.77.0.10:9419   10.77.0.21:33490       
+0      0         10.77.0.10:9419   10.77.0.22:55278       
+0      0         10.77.0.10:9419   10.77.0.22:55268       
+0      0         10.77.0.10:9419   10.77.0.22:55246       
+0      0         10.77.0.10:9419   10.77.0.21:33492       
+0      0         10.77.0.10:9419   10.77.0.21:33476       
+0      0         10.77.0.10:9419   10.77.0.21:33482       
+0      0         10.77.0.10:9419   10.77.0.21:33480       
 connections: 10
 by client address:
       5 10.77.0.21
@@ -44,13 +44,13 @@ children left: 0   zombies: 0
 
 ==== proof 3: the server log, one pid per client ====
 clients that connected: 10
-2026-11-12 10:30:10.727 [INFO ] pmond[58663] server/session.c:134: 10.77.0.22:41552 connected
-2026-11-12 10:30:10.727 [INFO ] pmond[58664] server/session.c:134: 10.77.0.21:57218 connected
-2026-11-12 10:30:10.728 [INFO ] pmond[58665] server/session.c:134: 10.77.0.22:41566 connected
-2026-11-12 10:30:10.728 [INFO ] pmond[58666] server/session.c:134: 10.77.0.21:57232 connected
-2026-11-12 10:30:10.729 [INFO ] pmond[58667] server/session.c:134: 10.77.0.21:57246 connected
-2026-11-12 10:30:10.729 [INFO ] pmond[58668] server/session.c:134: 10.77.0.22:41582 connected
-2026-11-12 10:30:10.729 [INFO ] pmond[58669] server/session.c:134: 10.77.0.21:57258 connected
-2026-11-12 10:30:10.729 [INFO ] pmond[58670] server/session.c:134: 10.77.0.22:41584 connected
-2026-11-12 10:30:10.730 [INFO ] pmond[58671] server/session.c:134: 10.77.0.22:41596 connected
-2026-11-12 10:30:10.730 [INFO ] pmond[58672] server/session.c:134: 10.77.0.21:57272 connected
+2026-11-12 11:52:56.052 [INFO ] pmond[65517] server/session.c:134: 10.77.0.22:55246 connected
+2026-11-12 11:52:56.053 [INFO ] pmond[65518] server/session.c:134: 10.77.0.22:55262 connected
+2026-11-12 11:52:56.054 [INFO ] pmond[65519] server/session.c:134: 10.77.0.22:55264 connected
+2026-11-12 11:52:56.054 [INFO ] pmond[65520] server/session.c:134: 10.77.0.22:55268 connected
+2026-11-12 11:52:56.055 [INFO ] pmond[65521] server/session.c:134: 10.77.0.21:33476 connected
+2026-11-12 11:52:56.055 [INFO ] pmond[65522] server/session.c:134: 10.77.0.22:55278 connected
+2026-11-12 11:52:56.055 [INFO ] pmond[65523] server/session.c:134: 10.77.0.21:33480 connected
+2026-11-12 11:52:56.056 [INFO ] pmond[65524] server/session.c:134: 10.77.0.21:33482 connected
+2026-11-12 11:52:56.057 [INFO ] pmond[65525] server/session.c:134: 10.77.0.21:33490 connected
+2026-11-12 11:52:56.057 [INFO ] pmond[65526] server/session.c:134: 10.77.0.21:33492 connected
