@@ -100,3 +100,26 @@ time=10:26:04.cpu_pct=2.5.load1=0.03.tasks=187.mem_total_mb=3915.mem_used_mb=549
 
 這三點是期中的已知限制。期末專案的 Security 項目（加密、認證）就是針對它們。
 目前的防護是部署在不對外的獨立測試網段上。
+
+## 用 Wireshark 檢視跨機擷取
+
+Wireshark 不認得自訂的協定，預設只會把訊框顯示成一串 TCP 資料。`docs/capture/pmon.lua` 是一支 Lua 解析器，告訴 Wireshark 埠 9419 上的資料前 12 位元組各是什麼欄位。
+
+```
+wireshark -X lua_script:docs/capture/pmon.lua docs/capture/stat-ens4.pcap
+tshark    -X lua_script:docs/capture/pmon.lua -r docs/capture/stat-ens4.pcap -Y pmon -O pmon
+```
+
+封包 4，client（10.77.0.21）送給 server（10.77.0.10）的請求：
+
+![Wireshark：請求訊框](screenshots/wireshark-request.png)
+
+封包 6，server 的回應：
+
+![Wireshark：回應訊框](screenshots/wireshark-reply.png)
+
+- 第 4、6 個封包的 Protocol 欄顯示 PMON，Info 欄是解析器產生的摘要。
+- 左下方是解析結果：請求的內容長度為 0、CRC 為 0；回應的內容長度為 183、CRC 為 `0x1a0a7d18`。
+- 右下方反白的位元組就是 pmon 訊框，它前面的位元組是 Ethernet、IP、TCP 三層的標頭。
+
+畫面由 `docs/report/wireshark-shot.sh` 在虛擬顯示器上開啟 Wireshark 後擷取。
