@@ -3,6 +3,7 @@
 #   make            normal build  -> build/
 #   make DEBUG=1    debug build   -> build-debug/  (LOG_DEBUG compiled in, -g)
 #   make deploy     copy the client and the shared library to the client VMs
+#   make dist       pack the committed source into pmon-source.zip
 #   make clean      remove both build directories
 #
 # The two builds live in separate directories so they can be compared.
@@ -34,7 +35,7 @@ CLIENT_OBJ := $(patsubst %.c,$(BUILD)/obj/%.o,$(wildcard client/*.c))
 # without LD_LIBRARY_PATH wherever bin/ and lib/ are copied together.
 LDLIBS := -L$(BUILD)/lib -lpmon -Wl,-rpath,'$$ORIGIN/../lib'
 
-.PHONY: all deploy clean
+.PHONY: all deploy dist clean
 all: $(LIB) $(SERVER) $(CLIENT)
 
 # Library objects must be position-independent to go into a shared object.
@@ -68,7 +69,13 @@ deploy: all
 		echo "deployed $(BUILD) to $$h:~/pmon" || exit 1; \
 	done
 
+# The archive handed in with the report. It is made from the last commit,
+# so it holds exactly what is in version control and no build output.
+dist:
+	git archive --format=zip --prefix=pmon/ -o pmon-source.zip HEAD
+	@echo "wrote pmon-source.zip ($$(git rev-parse --short HEAD))"
+
 clean:
-	rm -rf build build-debug
+	rm -rf build build-debug pmon-source.zip
 
 -include $(LIB_OBJ:.o=.d) $(SERVER_OBJ:.o=.d) $(CLIENT_OBJ:.o=.d)

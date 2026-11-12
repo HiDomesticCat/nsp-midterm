@@ -170,6 +170,7 @@ so they look for the library in the `lib/` directory next to their own location,
 | `make` | Normal build, output in `build/` |
 | `make DEBUG=1` | Debug build: keeps the debug log, adds `-g`, output in `build-debug/` |
 | `make deploy` | Copies the client executable and `libpmon.so` to `~/pmon/` on the two client VMs |
+| `make dist` | Packs the committed source into `pmon-source.zip`, the archive handed in with the report |
 | `make clean` | Removes the build output |
 
 Development workflow:

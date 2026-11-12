@@ -1,0 +1,3 @@
+# Left out of the archive made by `make dist`: the report is handed in
+# as its own file.
+docs/report/*.docx export-ignore

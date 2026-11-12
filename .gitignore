@@ -3,3 +3,6 @@ build/
 build-debug/
 *.o
 *.d
+
+# make dist
+pmon-source.zip

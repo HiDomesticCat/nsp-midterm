@@ -12,6 +12,7 @@ Both link the shared library `libpmon.so`.
 make            # normal build -> build/
 make DEBUG=1    # debug build -> build-debug/ (keeps the debug log)
 make deploy     # copy the client and libpmon.so to the client VMs
+make dist       # pack the committed source into pmon-source.zip
 make clean
 ```
 

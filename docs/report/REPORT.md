@@ -598,6 +598,7 @@ The four options in section 5 put the server in an unsafe state and are for demo
 make            # normal build -> build/
 make DEBUG=1    # debug build -> build-debug/
 make deploy     # copy the client and libpmon.so to the client hosts
+make dist       # pack the source into pmon-source.zip
 make clean
 
 build/bin/pmond                       # start the server
@@ -620,28 +621,42 @@ demo/verify.sh                        # check every requirement
 
 # Appendix: Complete Source Code
 
-@source Makefile
-@source include/pmon.h
-@source lib/log.c
-@source lib/io.c
-@source lib/proto.c
-@source lib/kv.c
-@source server/server.h
-@source server/pmond.c
-@source server/session.c
-@source server/sysinfo.c
-@source server/metrics.c
-@source client/pmon.c
-@source demo/common.sh
-@source demo/01-basic.sh
-@source demo/02-ten-clients.sh
-@source demo/03-capture.sh
-@source demo/04-debug-log.sh
-@source demo/05-shared-lib.sh
-@source demo/r1-zombie.sh
-@source demo/r2-validate.sh
-@source demo/r3-timeout.sh
-@source demo/r4-sigpipe.sh
-@source demo/run-all.sh
-@source demo/verify.sh
-@source docs/capture/pmon.lua
+The complete source code is handed in together with this report as the archive `pmon-source.zip`. It is produced by `make dist` from the version-controlled files, so it holds exactly the code that produced the results in this report. To build it:
+
+```
+unzip pmon-source.zip
+cd pmon
+make
+```
+
+The files in the archive:
+
+| File | Content |
+|---|---|
+| `Makefile` | Builds the library and both programs; `DEBUG=1`, `deploy`, `dist`, `clean` |
+| `include/pmon.h` | Interface of the shared library: frame format, opcodes, log macros |
+| `lib/log.c` | Two-level logging |
+| `lib/io.c` | Complete read and write with a timeout |
+| `lib/proto.c` | Sending, receiving and checking frames; CRC-32 |
+| `lib/kv.c` | `key=value` text handling |
+| `server/server.h` | Declarations shared by the server's files |
+| `server/pmond.c` | The parent: options, signals, accept, fork, reaping children |
+| `server/session.c` | The child: the request loop for one connection |
+| `server/sysinfo.c` | Static facts about the host |
+| `server/metrics.c` | Performance figures from `/proc` |
+| `client/pmon.c` | The client: command table, option parsing, output |
+| `demo/common.sh` | Helpers shared by the demo scripts |
+| `demo/01-basic.sh` | Demo: system information |
+| `demo/02-ten-clients.sh` | Demo: fork and 10 concurrent clients |
+| `demo/03-capture.sh` | Demo: packet capture |
+| `demo/04-debug-log.sh` | Demo: two levels of debug logging |
+| `demo/05-shared-lib.sh` | Demo: shared dynamic library |
+| `demo/r1-zombie.sh` | Robustness R1, with and without |
+| `demo/r2-validate.sh` | Robustness R2, with and without |
+| `demo/r3-timeout.sh` | Robustness R3, with and without |
+| `demo/r4-sigpipe.sh` | Robustness R4, with and without |
+| `demo/run-all.sh` | Runs every demo in order |
+| `demo/verify.sh` | Checks every requirement and prints PASS or FAIL |
+| `docs/capture/pmon.lua` | Wireshark dissector for the pmon frame |
+| `docs/capture/*.pcap`, `*.txt` | The two packet captures and their `tcpdump` output |
+| `docs/` | Design notes, packet analysis, screenshots, and the source of this report |

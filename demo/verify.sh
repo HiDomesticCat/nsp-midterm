@@ -143,11 +143,21 @@ for i in 1 2 3 4 5; do build/bin/pmon -s 127.0.0.1:$PORT stat >/dev/null; done; 
 is "zombies with reaping" "$(zomb)" 0
 stop
 
-echo "== report: every source file is in the appendix"
-grep '^@source ' docs/report/REPORT.md | awk '{print $2}' | sort > /tmp/audit-rep.lst
-git ls-files Makefile include lib server client demo | sort > /tmp/audit-git.lst
-is "source files missing from the appendix" "$(comm -13 /tmp/audit-rep.lst /tmp/audit-git.lst | wc -l)" 0
-comm -13 /tmp/audit-rep.lst /tmp/audit-git.lst | sed 's/^/      missing: /'
+echo "== source archive handed in with the report (make dist)"
+git ls-files Makefile include lib server client demo docs/capture/pmon.lua | sort > /tmp/audit-git.lst
+rm -rf /tmp/audit-dist && mkdir -p /tmp/audit-dist
+git archive --format=zip --prefix=pmon/ -o /tmp/audit-dist/pmon-source.zip HEAD
+(cd /tmp/audit-dist && python3 -m zipfile -e pmon-source.zip . && cd pmon && find . -type f | sed 's|^\./||' | sort > /tmp/audit-zip.lst)
+is "source files missing from the archive" "$(comm -23 /tmp/audit-git.lst /tmp/audit-zip.lst | wc -l)" 0
+comm -23 /tmp/audit-git.lst /tmp/audit-zip.lst | sed 's/^/      missing: /'
+is "source files in the archive that differ from the working tree" "$(while read f; do cmp -s "$f" "/tmp/audit-dist/pmon/$f" || echo x; done < /tmp/audit-git.lst | wc -l)" 0
+make -C /tmp/audit-dist/pmon > /tmp/audit-dist/make.log 2>&1
+is "archive unpacked elsewhere: make exit status" $? 0
+is "archive build: compiler warnings" "$(grep -ci warning /tmp/audit-dist/make.log)" 0
+is "archive build: programs produced" "$(ls /tmp/audit-dist/pmon/build/bin/pmond /tmp/audit-dist/pmon/build/bin/pmon /tmp/audit-dist/pmon/build/lib/libpmon.so 2>/dev/null | wc -l)" 3
+echo "      files in archive: $(wc -l < /tmp/audit-zip.lst), $(stat -c %s /tmp/audit-dist/pmon-source.zip) bytes"
+is "source files not listed in the report appendix" "$(while read f; do grep -qF "\`$f\`" docs/report/REPORT.md || echo x; done < /tmp/audit-git.lst | wc -l)" 0
+rm -rf /tmp/audit-dist
 is "report images that do not exist" "$(cd docs/report && grep '^@image ' REPORT.md | awk '{print $2}' | while read p; do [ -f "$p" ] || echo x; done | wc -l)" 0
 echo "      images in report: $(grep -c '^@image ' docs/report/REPORT.md)"
 
